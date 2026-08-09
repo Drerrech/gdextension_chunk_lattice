@@ -1,0 +1,70 @@
+[gd_scene format=3 uid="uid://cceeylv1v33ra"]
+
+[ext_resource type="Script" uid="uid://btnu8vkwibi0e" path="res://bomb.gd" id="1_573fp"]
+[ext_resource type="PackedScene" uid="uid://bjaeso3bry1ei" path="res://loader.tscn" id="2_4fn8o"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_7pfnl"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_16rwo"]
+albedo_color = Color(0.13863751, 0.13863748, 0.13863748, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_813wq"]
+material = SubResource("StandardMaterial3D_16rwo")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_813wq"]
+albedo_color = Color(0.9658788, 0.8433498, 0.25994462, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_7pfnl"]
+material = SubResource("StandardMaterial3D_813wq")
+top_radius = 0.05
+bottom_radius = 0.05
+height = 0.2
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_7pfnl"]
+direction = Vector3(0, 1, 0)
+spread = 20.0
+initial_velocity_min = 1.0
+initial_velocity_max = 2.0
+gravity = Vector3(0, 0, 0)
+
+[sub_resource type="QuadMesh" id="QuadMesh_k5bgr"]
+size = Vector2(0.1, 0.1)
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_4fn8o"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+
+[node name="bomb" type="RigidBody3D" unique_id=720817006]
+script = ExtResource("1_573fp")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=2063100191]
+shape = SubResource("SphereShape3D_7pfnl")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=547909938]
+mesh = SubResource("SphereMesh_813wq")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="." unique_id=1424931406]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+mesh = SubResource("CylinderMesh_7pfnl")
+
+[node name="GPUParticles3D" type="GPUParticles3D" parent="." unique_id=1948837333]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+lifetime = 0.76
+transform_align = 3
+process_material = SubResource("ParticleProcessMaterial_7pfnl")
+draw_pass_1 = SubResource("QuadMesh_k5bgr")
+
+[node name="Timer" type="Timer" parent="." unique_id=717049959]
+wait_time = 3.0
+autostart = true
+
+[node name="loader" parent="." unique_id=541202290 instance=ExtResource("2_4fn8o")]
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=1710801501]
+replication_config = SubResource("SceneReplicationConfig_4fn8o")
+
+[connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]

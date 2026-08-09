@@ -1,0 +1,58 @@
+[gd_scene format=3 uid="uid://durr4htj3midt"]
+
+[ext_resource type="Script" uid="uid://c4paqtqanneeh" path="res://player.gd" id="1_4flbx"]
+[ext_resource type="PackedScene" uid="uid://bjaeso3bry1ei" path="res://loader.tscn" id="2_onrkg"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_sh265"]
+size = Vector3(1, 2, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_onrkg"]
+size = Vector3(0.38, 0.44, 1.49)
+
+[sub_resource type="BoxMesh" id="BoxMesh_4flbx"]
+size = Vector3(1, 2, 1)
+
+[sub_resource type="TextMesh" id="TextMesh_4flbx"]
+resource_local_to_scene = true
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_4flbx"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath("Torso:rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath("Torso/Head:rotation")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+
+[node name="CharacterBody3D" type="CharacterBody3D" unique_id=130711143]
+script = ExtResource("1_4flbx")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1096833519]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("BoxShape3D_sh265")
+
+[node name="Torso" type="Node3D" parent="." unique_id=669534899]
+
+[node name="Head" type="Node3D" parent="Torso" unique_id=550193679]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Torso/Head" unique_id=1605212454]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Torso/Head" unique_id=443932116]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.62151647)
+mesh = SubResource("BoxMesh_onrkg")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Torso" unique_id=1627331657]
+transform = Transform3D(1, 0, 0, 0, 0.9577623, 0.28756112, 0, -0.28756112, 0.9577623, 0, 1, 0)
+mesh = SubResource("BoxMesh_4flbx")
+
+[node name="TextMesh" type="MeshInstance3D" parent="." unique_id=2077846042]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3600999, -1.216507)
+mesh = SubResource("TextMesh_4flbx")
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=129574304]
+replication_config = SubResource("SceneReplicationConfig_4flbx")
+
+[node name="loader" parent="." unique_id=541202290 instance=ExtResource("2_onrkg")]

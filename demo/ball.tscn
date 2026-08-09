@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://c2s58yfirou8f"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_cbx31"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_x8fbi"]
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_cbx31"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+
+[node name="Node3D" type="RigidBody3D" unique_id=1156028096]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1389366675]
+shape = SubResource("SphereShape3D_cbx31")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=277641053]
+mesh = SubResource("BoxMesh_x8fbi")
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=288577922]
+replication_config = SubResource("SceneReplicationConfig_cbx31")
