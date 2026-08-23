@@ -9,6 +9,14 @@ size = Vector3(1, 2, 1)
 [sub_resource type="BoxMesh" id="BoxMesh_onrkg"]
 size = Vector3(0.38, 0.44, 1.49)
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_813wq"]
+albedo_color = Color(0.9137255, 0, 0.17254902, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_7pfnl"]
+material = SubResource("StandardMaterial3D_813wq")
+radius = 0.1
+height = 0.2
+
 [sub_resource type="BoxMesh" id="BoxMesh_4flbx"]
 size = Vector3(1, 2, 1)
 
@@ -43,6 +51,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Torso/Head" unique_id=443932116]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.62151647)
 mesh = SubResource("BoxMesh_onrkg")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="Torso/Head" unique_id=1176306803]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3)
+mesh = SubResource("SphereMesh_7pfnl")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Torso" unique_id=1627331657]
 transform = Transform3D(1, 0, 0, 0, 0.9577623, 0.28756112, 0, -0.28756112, 0.9577623, 0, 1, 0)

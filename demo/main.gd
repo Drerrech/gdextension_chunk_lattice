@@ -1,6 +1,6 @@
 extends Node
 
-const c_shape = Vector3i(8, 8, 8)
+const c_shape = Vector3i(65, 65, 65)
 const c_cube_size = Vector3(1, 1, 1)
 const l_type = 0
 const l_seed = 42
@@ -13,6 +13,9 @@ const l_seed = 42
 func _ready() -> void:
 	multiplayer.peer_connected.connect(_peer_connected)
 	multiplayer.peer_disconnected.connect(_peer_disconnected)
+	#multiplayer.connected_to_server.connect(func(): print(">>> CONNECTED, my id: ", multiplayer.get_unique_id()))
+	#multiplayer.connection_failed.connect(func(): print(">>> CONNECTION FAILED"))
+	#multiplayer.server_disconnected.connect(func(): print(">>> SERVER DISCONNECTED"))
 
 func start_server() -> void:
 	print("starting server")
@@ -28,7 +31,10 @@ func start_server() -> void:
 func start_client() -> void:
 	CL.setup("client_empty", c_shape, c_cube_size, l_type, l_seed)
 	var peer = ENetMultiplayerPeer.new()
-	peer.create_client("127.0.0.1", 8998)
+	var err = peer.create_client("127.0.0.1", 8998)
+	print("create_client err = ", err, " (", error_string(err), ")")
+	if err != OK:
+		return
 	multiplayer.multiplayer_peer = peer
 	ui_interface.visible = false
 	# spawned via _peer_connected
@@ -45,10 +51,6 @@ func _peer_disconnected(id: int) -> void:
 	var player = m_spawner.get_node_or_null(str(id))
 	if player:
 		player.queue_free()
-
-# Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta: float) -> void:
-	pass
 
 
 func _on_server_button_down() -> void:

@@ -53,6 +53,7 @@ func exit_chunk(p_chunk_idx: Vector3i):
 
 func setup() -> void:
 	if (not multiplayer.is_server()): return
+	var time = Time.get_ticks_msec()
 	compute_idxs()
 	
 	# mesh-enter all
@@ -72,6 +73,8 @@ func setup() -> void:
 				var _chunk_to_load_idx = chunk_idx + _offset
 				currently_collision_loaded.append(_chunk_to_load_idx)
 				enter_collision_chunk(_chunk_to_load_idx)
+	
+	print("passed: ", Time.get_ticks_msec() - time)
 
 func _exit_tree() -> void:
 	if (not multiplayer.is_server()): return

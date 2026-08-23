@@ -74,20 +74,33 @@ int Chunk::get_idx(int i, int j, int k) {
 }
 
 void Chunk::set_raw_generation_points() {
+    Vector3 chunk_pos = get_global_position();
+
 	for (int i = 0; i < chunk_shape.x; i++) {
 		for (int j = 0; j < chunk_shape.y; j++) {
 			for (int k = 0; k < chunk_shape.z; k++) {
 				int idx = get_idx(i, j, k);
-				Vector3 global_pos(get_global_position() + chunk_cube_size*Vector3(i, j, k));
+				Vector3 global_pos(chunk_pos + chunk_cube_size*Vector3(i, j, k));
 
-                Dictionary d = get_raw_point(lattice_type, lattice_seed, global_pos);
-				point_fullness_values.set(idx, (float)d[String("fullness")]);
-				point_material_values.set(idx, (uint8_t)(int)d[String("material")]);
+                PointValue p = get_raw_point(lattice_type, lattice_seed, global_pos);
+				point_fullness_values.set(idx, p.fullness);
+				point_material_values.set(idx, p.material);
 			}
 		}
 	}
 
-    // TODO structures etc
+    // structures
+    ChunkChanges c = get_chunk_structure_changes(chunk_pos, chunk_shape, chunk_cube_size);
+    // apply changes without writing to the changes list (this is a part of the terrain)
+    PackedInt32Array changes_idxs = c.idxs;
+    PackedFloat32Array changes_fullness = c.fullness;
+    PackedByteArray changes_material = c.material;
+    for (int64_t i = 0; i < (int64_t)changes_idxs.size(); i++) {
+        // apply changes to the array
+        int32_t _idx = changes_idxs[i];
+        point_fullness_values.set(_idx, changes_fullness[i]);
+        point_material_values.set(_idx, changes_material[i]);
+    }
 }
 
 // file structure:

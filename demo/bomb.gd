@@ -15,6 +15,5 @@ func _physics_process(delta: float) -> void:
 func _on_timer_timeout() -> void:
 	if (not multiplayer.is_server()): return
 	var global_idx = TerrainModifications.get_global_idx(global_position)
-	#print("EXPLODING AT GLOBAL IDX ", global_idx)
-	TerrainModifications.uniform_dumb_overwrite_cube_set(global_idx - explosion_rad*Vector3i(1, 1, 1), explosion_rad*2 + 1, -1.0, 0)
+	TerrainModifications.uniform_dumb_overwrite_cube_set(global_idx - explosion_rad*Vector3i(1, 1, 1), explosion_rad*2 + 1, 1.0, 0)
 	queue_free()

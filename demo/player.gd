@@ -1,14 +1,28 @@
+class_name Player
+
 extends CharacterBody3D
 
 @onready var Main = get_tree().root.get_node("main")
 
 var id: int
 
-const SPEED = 20.0
-const JUMP_VELOCITY = 4.5
+const SPEED = 40.0
+const JUMP_VELOCITY = 10
 const MOUSE_SENSITIVITY = 0.1
 
 @onready var m_spawner = Main.m_spawner
+
+# exposed variables
+var pressed_buttons = {
+	"1": false,
+	"2": false,
+	"w": false,
+	"a": false,
+	"s": false,
+	"d": false,
+	"m1": false,
+	"m2": false
+}
 
 @onready var loader = $loader
 
@@ -21,6 +35,8 @@ func _ready() -> void:
 	name = str(id)
 	text_mesh.mesh.text = str(id)
 	loader.player_client_id = id
+	loader.mesh_load_cube_rad = 2 # if its too large it can't load in time and physics process starts and everything explodes, make it wait somehow
+	loader.collision_load_cube_rad = 2
 	loader.setup()
 	
 	# owner only
@@ -42,8 +58,8 @@ func _physics_process(delta: float) -> void:
 			velocity += get_gravity() * delta
 
 		# Handle jump.
-		if Input.is_action_just_pressed("space"):
-			velocity.y = JUMP_VELOCITY
+		if Input.is_action_pressed("space"):
+			velocity.y += 0.1*JUMP_VELOCITY
 
 		# Get the input direction and handle the movement/deceleration.
 		# As good practice, you should replace UI actions with custom gameplay actions.
@@ -58,8 +74,39 @@ func _physics_process(delta: float) -> void:
 
 		move_and_slide()
 
+func _process(delta: float) -> void:
+	if multiplayer.is_server():
+		server_side_update(delta)
+
+var _drill_interval = 0.2
+var _drill_delta = 0
+func server_side_update(delta: float) -> void:
+	# soil gun
+	var drill_rad = 1
+	if pressed_buttons["m1"] or pressed_buttons["m2"]:
+		if _drill_delta <= 0:
+			_drill_delta = _drill_interval
+			if pressed_buttons["m1"]:
+				var pos = head.global_position + -3.0 * head.global_basis.z
+				var global_idx = TerrainModifications.get_global_idx(pos)
+				TerrainModifications.uniform_dumb_overwrite_cube_set(global_idx - 0*drill_rad*Vector3i(1, 1, 1), drill_rad*2 + 1, -1.0, 0)
+			if pressed_buttons["m2"]:
+				var pos = head.global_position + -3.0 * head.global_basis.z
+				var global_idx = TerrainModifications.get_global_idx(pos)
+				TerrainModifications.uniform_dumb_overwrite_cube_set(global_idx - 0*drill_rad*Vector3i(1, 1, 1), drill_rad*2 + 1, 1.0, 1)
+	if _drill_delta > 0: _drill_delta -= delta
+
 func _input(event):
 	if not is_multiplayer_authority(): return
+	
+	# buttons
+	for k in pressed_buttons.keys():
+		var pressed = Input.is_action_pressed(k)
+		if pressed != pressed_buttons[k]:
+			rpc_server_player_set_button.rpc_id(1, k, pressed)
+			pressed_buttons[k] = pressed
+	
+	
 	if event is InputEventMouseMotion and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 		torso.rotate_y(deg_to_rad(event.relative.x * MOUSE_SENSITIVITY * -1))
 		head.rotate_x(deg_to_rad(event.relative.y * MOUSE_SENSITIVITY * -1))
@@ -69,3 +116,8 @@ func _input(event):
 		m_spawner.rpc_spawn.rpc_id(1, {"type": "ball", "glob_pos": head.global_position + -4.0 * head.global_basis.z})
 	if Input.is_action_just_pressed("2"):
 		m_spawner.rpc_spawn.rpc_id(1, {"type": "bomb", "glob_pos": head.global_position + -4.0 * head.global_basis.z, "linear_velocity": -10.0 * head.global_basis.z})
+
+@rpc("any_peer", "call_remote", "reliable")
+func rpc_server_player_set_button(key: String, pressed: bool):
+	if !multiplayer.is_server(): return
+	pressed_buttons[key] = pressed
