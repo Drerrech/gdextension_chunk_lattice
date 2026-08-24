@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://c2s58yfirou8f"]
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_cbx31"]
+[sub_resource type="SphereShape3D" id="SphereShape3D_x8fbi"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_x8fbi"]
 
@@ -15,14 +15,10 @@ properties/1/replication_mode = 1
 [node name="Node3D" type="RigidBody3D" unique_id=1156028096]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1389366675]
-shape = SubResource("BoxShape3D_cbx31")
+shape = SubResource("SphereShape3D_x8fbi")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=277641053]
 mesh = SubResource("BoxMesh_x8fbi")
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=288577922]
 replication_config = SubResource("SceneReplicationConfig_cbx31")
-
-[node name="OmniLight3D" type="OmniLight3D" parent="." unique_id=323122914]
-light_color = Color(0.8878476, 0.78619945, 0.61861956, 1)
-omni_range = 8.0

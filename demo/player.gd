@@ -16,6 +16,7 @@ const MOUSE_SENSITIVITY = 0.1
 var pressed_buttons = {
 	"1": false,
 	"2": false,
+	"3": false,
 	"w": false,
 	"a": false,
 	"s": false,
@@ -113,9 +114,11 @@ func _input(event):
 		head.rotation_degrees.x = clamp(head.rotation_degrees.x, -89, 89)
 	
 	if Input.is_action_just_pressed("1"):
-		m_spawner.rpc_spawn.rpc_id(1, {"type": "ball", "glob_pos": head.global_position + -4.0 * head.global_basis.z})
+		m_spawner.rpc_spawn.rpc_id(1, {"type": "ball", "glob_pos": head.global_position + -3.0 * head.global_basis.z})
 	if Input.is_action_just_pressed("2"):
-		m_spawner.rpc_spawn.rpc_id(1, {"type": "bomb", "glob_pos": head.global_position + -4.0 * head.global_basis.z, "linear_velocity": -10.0 * head.global_basis.z})
+		m_spawner.rpc_spawn.rpc_id(1, {"type": "bomb", "glob_pos": head.global_position + -3.0 * head.global_basis.z, "linear_velocity": -20.0 * head.global_basis.z})
+	if Input.is_action_just_pressed("3"):
+		m_spawner.rpc_spawn.rpc_id(1, {"type": "light", "glob_pos": head.global_position + -3.0 * head.global_basis.z})
 
 @rpc("any_peer", "call_remote", "reliable")
 func rpc_server_player_set_button(key: String, pressed: bool):
