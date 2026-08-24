@@ -18,6 +18,6 @@ mesh = SubResource("SphereMesh_eaa0b")
 
 [node name="OmniLight3D" type="OmniLight3D" parent="." unique_id=560637473]
 light_color = Color(0.9813035, 0.8667997, 0.6988767, 1)
+light_energy = 2.0
 shadow_enabled = true
-omni_range = 8.0
-omni_attenuation = 2.0
+omni_range = 16.0
