@@ -6,8 +6,8 @@ extends CharacterBody3D
 
 var id: int
 
-const SPEED = 40.0
-const JUMP_VELOCITY = 10
+const SPEED = 8.0
+const JUMP_VELOCITY = 5
 const MOUSE_SENSITIVITY = 0.1
 
 @onready var m_spawner = Main.m_spawner
@@ -58,8 +58,8 @@ func _physics_process(delta: float) -> void:
 			velocity += get_gravity() * delta
 
 		# Handle jump.
-		if Input.is_action_pressed("space"):
-			velocity.y += 0.1*JUMP_VELOCITY
+		if Input.is_action_just_pressed("space"):
+			velocity.y = JUMP_VELOCITY
 
 		# Get the input direction and handle the movement/deceleration.
 		# As good practice, you should replace UI actions with custom gameplay actions.
