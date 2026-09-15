@@ -133,4 +133,35 @@ static inline ChunkChanges get_chunk_structure_changes(Vector3 chunk_pos, Vector
     return banana_changes;
 }
 
+static inline void set_chunk_raw_points(Chunk* chunk) {
+    Vector3 chunk_pos = chunk->get_global_position();
+
+    // terrain
+	for (int i = 0; i < chunk->chunk_shape.x; i++) {
+		for (int j = 0; j < chunk->chunk_shape.y; j++) {
+			for (int k = 0; k < chunk->chunk_shape.z; k++) {
+				int idx = chunk->get_idx(i, j, k);
+				Vector3 global_pos(chunk_pos + chunk->chunk_cube_size*Vector3(i, j, k));
+
+                PointValue p = get_raw_point(chunk->lattice_type, chunk->lattice_seed, global_pos);
+				chunk->point_fullness_values.set(idx, p.fullness);
+				chunk->point_material_values.set(idx, p.material);
+			}
+		}
+	}
+
+    // structures
+    ChunkChanges c = get_chunk_structure_changes(chunk_pos, chunk->chunk_shape, chunk->chunk_cube_size);
+    // apply changes without writing to the changes list (this is a part of the terrain)
+    PackedInt32Array changes_idxs = c.idxs;
+    PackedFloat32Array changes_fullness = c.fullness;
+    PackedByteArray changes_material = c.material;
+    for (int64_t i = 0; i < (int64_t)changes_idxs.size(); i++) {
+        // apply changes to the array
+        int32_t _idx = changes_idxs[i];
+        chunk->point_fullness_values.set(_idx, changes_fullness[i]);
+        chunk->point_material_values.set(_idx, changes_material[i]);
+    }
+}
+
 #endif

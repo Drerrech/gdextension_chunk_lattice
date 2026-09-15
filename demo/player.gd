@@ -36,7 +36,7 @@ func _ready() -> void:
 	name = str(id)
 	text_mesh.mesh.text = str(id)
 	loader.player_client_id = id
-	loader.mesh_load_cube_rad = 2 # if its too large it can't load in time and physics process starts and everything explodes, make it wait somehow
+	loader.mesh_load_cube_rad = 3 # if its too large it can't load in time and physics process starts and everything explodes, make it wait somehow
 	loader.collision_load_cube_rad = 2
 	loader.setup()
 	

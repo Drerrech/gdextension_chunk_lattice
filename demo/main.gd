@@ -31,7 +31,7 @@ func start_server() -> void:
 func start_client() -> void:
 	CL.setup("client_empty", c_shape, c_cube_size, l_type, l_seed)
 	var peer = ENetMultiplayerPeer.new()
-	var err = peer.create_client("10.241.89.253", 8998) # 127.0.0.1
+	var err = peer.create_client("127.0.0.1", 8998)
 	print("create_client err = ", err, " (", error_string(err), ")")
 	if err != OK:
 		return
