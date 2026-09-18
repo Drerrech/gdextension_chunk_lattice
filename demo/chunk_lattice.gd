@@ -2,15 +2,26 @@ extends ChunkLattice
 
 @onready var Main = get_tree().root.get_node("main")
 
-# loading and applying updates to chunks
-@rpc("authority", "call_remote", "reliable")
-func rpc_client_update_mesh_chunk(chunk_idx: Vector3i, changes_idxs: PackedInt32Array, changes_fullness_values: PackedFloat32Array, changes_material_values: PackedByteArray):
-	client_update_mesh_chunk(chunk_idx, changes_idxs, changes_fullness_values, changes_material_values)
+var _t_start := 0
+var _timing := true
+var _last_count := -1
+var _idle_frames := 0
 
-@rpc("authority", "call_remote", "reliable")
-func rpc_client_update_collision_chunk(chunk_idx: Vector3i):
-	client_update_collision_chunk(chunk_idx)
+func start_load_timer() -> void:
+	_t_start = Time.get_ticks_msec()
+	_timing = true
+	_last_count = -1
+	_idle_frames = 0
 
-@rpc("authority", "call_remote", "reliable")
-func rpc_client_delete_chunk(chunk_idx: Vector3i):
-	client_delete_chunk(chunk_idx)
+func _process(_delta):
+	work_through_queues()
+	if not _timing: return
+	var c = get_child_count()
+	if c != _last_count:
+		_last_count = c
+		_idle_frames = 0
+	else:
+		_idle_frames += 1
+		if _idle_frames >= 30 and c > 0:
+			print("full load: ", Time.get_ticks_msec() - _t_start, " ms, ", c, " chunks")
+			_timing = false

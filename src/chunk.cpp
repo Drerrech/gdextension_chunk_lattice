@@ -8,13 +8,11 @@
 using namespace godot;
 
 void Chunk::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("setup", "chunk_shape", "chunk_cube_size"), &Chunk::setup);
-    ClassDB::bind_method(D_METHOD("initial_build"), &Chunk::initial_build);
     ClassDB::bind_method(D_METHOD("get_idx", "i", "j", "k"), &Chunk::get_idx);
-    ClassDB::bind_method(D_METHOD("set_raw_generation_points"), &Chunk::set_raw_generation_points);
-    ClassDB::bind_method(D_METHOD("apply_point_changes", "idxs", "fullnes_values", "material_values"), &Chunk::apply_point_changes);
-    ClassDB::bind_method(D_METHOD("set_generated_mesh"), &Chunk::set_generated_mesh);
-    ClassDB::bind_method(D_METHOD("set_generated_collision"), &Chunk::set_generated_collision);
+    ClassDB::bind_method(D_METHOD("set_data"), &Chunk::set_data);
+    ClassDB::bind_method(D_METHOD("set_mesh_data"), &Chunk::set_mesh_data);
+    ClassDB::bind_method(D_METHOD("assign_mesh"), &Chunk::assign_mesh);
+    ClassDB::bind_method(D_METHOD("assign_generated_collision"), &Chunk::assign_generated_collision);
     ClassDB::bind_method(D_METHOD("get_point_changes"), &Chunk::get_point_changes);
     ClassDB::bind_method(D_METHOD("get_occupants"), &Chunk::get_occupants);
 }
@@ -36,8 +34,10 @@ Chunk::~Chunk() {
     write_changes();
 }
 
-void Chunk::setup(String p_file_world_name, Vector3i p_chunk_shape, Vector3 p_chunk_cube_size, int p_lattice_type, int p_lattice_seed) {
+void Chunk::setup(String p_file_world_name, Vector3i p_chunk_idx, Vector3i p_chunk_shape, Vector3 p_chunk_cube_size, int p_lattice_type, int p_lattice_seed) {
 	file_world_name = p_file_world_name;
+    chunk_idx = p_chunk_idx;
+    global_pos = get_global_position();
 	chunk_shape = p_chunk_shape;
 	chunk_cube_size = p_chunk_cube_size;
     lattice_type = p_lattice_type;
@@ -45,6 +45,10 @@ void Chunk::setup(String p_file_world_name, Vector3i p_chunk_shape, Vector3 p_ch
 	int _num_elems = chunk_shape.x * chunk_shape.y * chunk_shape.z;
 	point_fullness_values.resize(_num_elems);
 	point_material_values.resize(_num_elems);
+
+    // file path
+    String chunk_file_name = vformat("%d_%d_%d.bin", p_chunk_idx.x, p_chunk_idx.y, p_chunk_idx.z); // poor person who makes a really small chunk lol TODO maybe use lattice_name+chunk_idx pattern instead to let lattices move
+    abstract_file_path = String("user://").path_join(file_world_name).path_join("chunk_changes").path_join(chunk_file_name);
 
     // children
 	mesh_instance_ptr = memnew(MeshInstance3D);
@@ -58,30 +62,23 @@ void Chunk::setup(String p_file_world_name, Vector3i p_chunk_shape, Vector3 p_ch
     add_child(collision_shape_instance_ptr);
 }
 
-void Chunk::initial_build() {
-    Vector3 _pos = get_global_position();
-    String chunk_file_name = vformat("%.4f_%.4f_%.4f.bin", _pos.x, _pos.y, _pos.z); // poor person who makes a really small chunk lol TODO maybe use lattice_name+chunk_idx pattern instead to let lattices move
-    abstract_file_path = String("user://").path_join(file_world_name).path_join("chunk_changes").path_join(chunk_file_name);
-
-    // load points and generate mesh (no point in having a meshless chunk loaded)
-    set_raw_generation_points();
-    read_and_apply_point_changes();
-    set_generated_mesh();
-}
-
 int Chunk::get_idx(int i, int j, int k) {
     return i * chunk_shape.y * chunk_shape.z + j * chunk_shape.z + k;
 }
 
-void Chunk::set_raw_generation_points() {
-    set_chunk_raw_points(this);
+void Chunk::set_data() {
+    // terrain and props
+    set_chunk_raw_data(this);
+
+    // point changes
+    read_point_changes_into_hash(); // will be set after popping from queue
 }
 
 // file structure:
 // [idxs array]
 // [values array]
 // [materials array] all solid blocks, and we know the num elements of each _num_triplets
-void Chunk::read_and_apply_point_changes() {
+void Chunk::read_point_changes_into_hash() {
     if (file_world_name == client_file_world_name_flag) return;
     
     static constexpr int BYTES_PER_TRIPLET = sizeof(int32_t) + sizeof(float) + sizeof(uint8_t);
@@ -98,7 +95,7 @@ void Chunk::read_and_apply_point_changes() {
         PackedFloat32Array _changes_fullness = (f->get_buffer(_num_triplets * sizeof(float))).to_float32_array();
         PackedByteArray _changes_material = f->get_buffer(_num_triplets); // already a packed byte array
 
-        apply_point_changes(_changes_idx, _changes_fullness, _changes_material);
+        add_point_hash_changes(_changes_idx, _changes_fullness, _changes_material);
     }
     // file does not exist, we can leave the changes empty
 }
@@ -133,17 +130,23 @@ void Chunk::write_changes() {
     f->store_buffer(_changes_material);
 }
 
-void Chunk::apply_point_changes(PackedInt32Array p_idxs, PackedFloat32Array p_fullness_values, PackedByteArray p_material_values) {
-    for (int64_t i = 0; i < (int64_t)p_idxs.size(); i++) {
-        // apply changes to the array
-        int32_t _idx = p_idxs[i];
-        point_fullness_values.set(_idx, p_fullness_values[i]);
-        point_material_values.set(_idx, p_material_values[i]);
 
+void Chunk::add_point_hash_changes(PackedInt32Array idxs, PackedFloat32Array fullness_values, PackedByteArray material_values) {
+    for (int64_t i = 0; i < (int64_t)idxs.size(); i++) {
         // convert to hash map
-        point_changes[p_idxs[i]] = {p_fullness_values[i], p_material_values[i]};
+        point_changes[idxs[i]] = {fullness_values[i], material_values[i]};
     }
 }
+
+void Chunk::apply_point_hash_changes() {
+    // apply changes to the array
+    for (const KeyValue<int32_t, PointChange> &kv : point_changes) {
+        point_fullness_values.set(kv.key, kv.value.fullness);
+        point_material_values.set(kv.key, kv.value.material);
+    }
+}
+
+// TODO apply prop changes and such
 
 int Chunk::get_triangulation_idx(int x, int y, int z) {
 	int idx = 0b00000000;
@@ -159,7 +162,7 @@ int Chunk::get_triangulation_idx(int x, int y, int z) {
 	return idx;
 }
 
-void Chunk::set_generated_mesh() {
+void Chunk::set_mesh_data() {
     vertex_positions.clear();
     PackedVector3Array vertex_normals; // TODO: calling resize first is faster, but we can't know in advance, not sure if max size memory <-> trade is worth it
     PackedFloat32Array custom0;
@@ -220,14 +223,16 @@ void Chunk::set_generated_mesh() {
         vertex_normals.set(i + 2, n);
     }
 
-    // create resource and assign to child
-    Array arrays;
-    arrays.resize(Mesh::ARRAY_MAX);
+    // fill resources
+    mesh_arrays.resize(Mesh::ARRAY_MAX);
 
-    arrays[Mesh::ARRAY_VERTEX]  = vertex_positions;
-    arrays[Mesh::ARRAY_NORMAL]  = vertex_normals;
-    arrays[Mesh::ARRAY_CUSTOM0] = custom0;
+    mesh_arrays[Mesh::ARRAY_VERTEX]  = vertex_positions;
+    mesh_arrays[Mesh::ARRAY_NORMAL]  = vertex_normals;
+    mesh_arrays[Mesh::ARRAY_CUSTOM0] = custom0;
+}
 
+void Chunk::assign_mesh() {
+    mesh_resource_ready = true;
     mesh_resource->clear_surfaces();
 
     // the mesh is clear now, if there is nothing do add it will stay that way
@@ -235,14 +240,14 @@ void Chunk::set_generated_mesh() {
 
     mesh_resource->add_surface_from_arrays(
         Mesh::PRIMITIVE_TRIANGLES,
-        arrays,
+        mesh_arrays,
         TypedArray<Array>(),   // blend_shapes (none)
         Dictionary(),          // lods (none)
         Mesh::ARRAY_CUSTOM_RGBA_FLOAT << Mesh::ARRAY_FORMAT_CUSTOM0_SHIFT
     );
 }
 
-void Chunk::set_generated_collision() {
+void Chunk::assign_generated_collision() {
     // for collsiion the guard is not needed because to make an empty one we just pass in an empty packed array
     collision_shape_resource->set_faces(vertex_positions);
     set_collision = true;
@@ -283,6 +288,7 @@ Array Chunk::get_occupants() {
         Dictionary d;
         d[String("loader")] = loader;
         d[String("collision")] = kv.value.collision;
+        d[String("peer_id")] = kv.value.peer_id;
         arr.append(d);
     }
     

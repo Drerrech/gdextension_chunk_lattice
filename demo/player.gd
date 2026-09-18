@@ -6,8 +6,8 @@ extends CharacterBody3D
 
 var id: int
 
-const SPEED = 8.0
-const JUMP_VELOCITY = 5
+const SPEED = 64.0
+const JUMP_VELOCITY = 20
 const MOUSE_SENSITIVITY = 0.1
 
 @onready var m_spawner = Main.m_spawner
@@ -51,7 +51,6 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	loader.check_and_load()
 	# owner only - synced
 	if is_multiplayer_authority():
 		# Add the gravity.
@@ -59,7 +58,7 @@ func _physics_process(delta: float) -> void:
 			velocity += get_gravity() * delta
 
 		# Handle jump.
-		if Input.is_action_just_pressed("space"):
+		if Input.is_action_pressed("space"):
 			velocity.y = JUMP_VELOCITY
 
 		# Get the input direction and handle the movement/deceleration.
@@ -75,7 +74,10 @@ func _physics_process(delta: float) -> void:
 
 		move_and_slide()
 
+
 func _process(delta: float) -> void:
+	loader.check_and_load()
+	
 	if multiplayer.is_server():
 		server_side_update(delta)
 

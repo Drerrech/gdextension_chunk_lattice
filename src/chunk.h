@@ -27,6 +27,9 @@ public:
 	String file_world_name;
 	String abstract_file_path;
 
+	Vector3i chunk_idx;
+	Vector3 global_pos;
+
 	Vector3i chunk_shape;
 	Vector3 chunk_cube_size;
 	int lattice_type;
@@ -34,6 +37,7 @@ public:
 
 	struct LoaderAttributes {
         bool collision;
+		int peer_id;
     };
 	HashMap<ObjectID, LoaderAttributes> occupants;
 
@@ -47,9 +51,11 @@ public:
 
 	// children and their resources
 	PackedVector3Array vertex_positions; // needed for collision
+	Array mesh_arrays; // vertex normal and custom
 	MeshInstance3D *mesh_instance_ptr;
 	Ref<ArrayMesh> mesh_resource;
 
+	bool mesh_resource_ready = false;
 	bool set_collision = false;
 	CollisionShape3D *collision_shape_instance_ptr;
 	Ref<ConcavePolygonShape3D> collision_shape_resource;
@@ -57,25 +63,25 @@ public:
 	Chunk();
 	~Chunk();
 
-	void setup(String p_file_world_name, Vector3i p_chunk_shape, Vector3 p_chunk_cube_size, int p_lattice_type, int p_lattice_seed);
-
-	void initial_build();
+	void setup(String p_file_world_name, Vector3i p_chunk_idx, Vector3i p_chunk_shape, Vector3 p_chunk_cube_size, int p_lattice_type, int p_lattice_seed);
 
 	int get_idx(int i, int j, int k);
 
-	void set_raw_generation_points(); // fills in the arrays according to how the planet should have been generated
-
-	void read_and_apply_point_changes();
+	void set_data();
+	
+	void read_point_changes_into_hash();
 
 	void write_changes();
 	
-	void apply_point_changes(PackedInt32Array idxs, PackedFloat32Array fullness_values, PackedByteArray material_values); // can be used to apply saved changes or new ones during game
+	void add_point_hash_changes(PackedInt32Array idxs, PackedFloat32Array fullness_values, PackedByteArray material_values);
+	void apply_point_hash_changes();
 
 	int get_triangulation_idx(int x, int y, int z);
-	
-	void set_generated_mesh(); // marches cubes, and assigns ArrayMesh to the child
 
-	void set_generated_collision(); // creates a ConcavePolygonShape3D with the array_vertex and assigns it to the child
+	void set_mesh_data(); // marches cubes, does not assign resources (mesh_arrays)
+	void assign_mesh(); // assigns the vertex positions and custom0 data to the mesh
+
+	void assign_generated_collision(); // creates a ConcavePolygonShape3D with the array_vertex and assigns it to the child
 
 	Dictionary get_point_changes();
 	

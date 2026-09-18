@@ -1,6 +1,8 @@
 #ifndef RAW_GENERATION_H
 #define RAW_GENERATION_H
 
+#include "chunk.h"
+
 #include <constants.h>
 #include <godot_cpp/variant/variant.hpp>
 #include <godot_cpp/variant/string.hpp>
@@ -133,8 +135,8 @@ static inline ChunkChanges get_chunk_structure_changes(Vector3 chunk_pos, Vector
     return banana_changes;
 }
 
-static inline void set_chunk_raw_points(Chunk* chunk) {
-    Vector3 chunk_pos = chunk->get_global_position();
+static inline void set_chunk_raw_data(Chunk* chunk) {
+    Vector3 chunk_pos = chunk->global_pos;
 
     // terrain
 	for (int i = 0; i < chunk->chunk_shape.x; i++) {

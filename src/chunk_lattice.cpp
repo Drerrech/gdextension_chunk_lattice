@@ -15,7 +15,8 @@ void ChunkLattice::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("client_update_collision_chunk", "chunk_idx"), &ChunkLattice::client_update_collision_chunk);
 	ClassDB::bind_method(D_METHOD("client_delete_chunk", "chunk_idx"), &ChunkLattice::client_delete_chunk);
 	ClassDB::bind_method(D_METHOD("get_points", "global_idxs"), &ChunkLattice::get_points);
-	ClassDB::bind_method(D_METHOD("set_points_and_update", "global_idxs", "fullness_values", "material_values"), &ChunkLattice::set_points_and_update);
+	ClassDB::bind_method(D_METHOD("set_points_and_add_for_update", "global_idxs", "fullness_values", "material_values"), &ChunkLattice::set_points_and_add_for_update);
+	ClassDB::bind_method(D_METHOD("work_through_queues"), &ChunkLattice::work_through_queues);
 	ClassDB::bind_method(D_METHOD("get_chunk", "chunk_idx"), &ChunkLattice::get_chunk);
 }
 
@@ -47,54 +48,76 @@ void ChunkLattice::setup(String p_file_world_name, Vector3i p_chunk_shape, Vecto
 	lattice_seed = p_lattice_seed;
 
 	make_world_dir(file_world_name);
+
+	num_chunk_generation_threads = 1; // for now a fixed number
+	// for (int _ = 0; _ < num_chunk_generation_threads; _++) {
+	// 	Ref<Thread> w;
+	// 	chunk_generation_threads.push_back(w);
+	// } TODO
+
+	Dictionary _cfg;
+	_cfg["rpc_mode"] = MultiplayerAPI::RPC_MODE_AUTHORITY;
+	_cfg["transfer_mode"] = MultiplayerPeer::TRANSFER_MODE_RELIABLE;
+	_cfg["call_local"] = false;
+	_cfg["channel"] = 0;
+	rpc_config("client_update_mesh_chunk", _cfg);
+	rpc_config("client_update_collision_chunk", _cfg);
+    rpc_config("client_delete_chunk", _cfg);
 }
 
-Chunk *ChunkLattice::loader_enters_mesh_chunk(Object *loader, Vector3i chunk_idx) {
+void ChunkLattice::loader_enters_mesh_chunk(Object *loader, Vector3i chunk_idx) {
 	ObjectID loader_obj_id = ObjectID(loader->get_instance_id());
+	int peer_id = loader->get("player_client_id");
 
+	// isn't loaded -> add as child add to raw data and mesh queue
 	if (!loaded_chunks.has(chunk_idx)) {
 		// brand new load
-		Chunk *c = memnew(Chunk); // fills in raw points, loads changes, constructs mesh
+		Chunk *c = memnew(Chunk);
 		add_child(c); // voodoo, somehow placing this before setting the position fixed a bug
-		c->setup(file_world_name, chunk_shape, chunk_cube_size, lattice_type, lattice_seed);
 		c->set_position(Vector3(chunk_idx * (chunk_shape - Vector3i(1, 1, 1))) * chunk_cube_size);
-		c->initial_build(); // depends on global position
+		c->setup(file_world_name, chunk_idx, chunk_shape, chunk_cube_size, lattice_type, lattice_seed);
 		loaded_chunks[chunk_idx] = c;
+
+		chunk_data_queue.push_front(chunk_idx); // this chunk will get its' points filled in
+		chunk_mesh_queue.push_front(chunk_idx); // this chunk will generate the mesh with the points from above and then set it
 	}
 
-	// below chunk might have been already loaded (or not)
 	Chunk *c = loaded_chunks[chunk_idx];
 
 	if (c->occupants.has(loader_obj_id)) {
 		UtilityFunctions::printerr("loader tried to call loader_enters_mesh_chunk while being in the loaders list");
-		return nullptr;
+		return;
 	}
-	
-	c->occupants[loader_obj_id] = {false}; // collision, not yet
 
-	return c;
+	// mark self as occupant
+	c->occupants[loader_obj_id] = {false, peer_id}; // collision, not yet TODO: ideally loader should be a cpp class, later...
+
+	// rpc sent in queue handling
 }
 
-Chunk *ChunkLattice::loader_enters_collision_chunk(Object *loader, Vector3i chunk_idx) {
+void ChunkLattice::loader_enters_collision_chunk(Object *loader, Vector3i chunk_idx) {
 	ObjectID loader_obj_id = ObjectID(loader->get_instance_id());
+	int peer_id = loader->get("player_client_id");
 
 	if (!loaded_chunks.has(chunk_idx)) {
 		UtilityFunctions::printerr("loader tried to call loader_enters_collision_chunk on a non-loaded chunk");
-		return nullptr;
+		return;
 	}
 
 	Chunk *c = loaded_chunks[chunk_idx];
 	if (!c->set_collision) { // loader doesn't change data so this is fine, client can't make this assumption however
-		c->set_generated_collision();
+		chunk_collision_queue.push_front(chunk_idx); // this chunk will get its' collision resource set from the mesh
 	}
 
-	c->occupants[loader_obj_id] = {true}; // setting the flag for collision
+	// mark self as occupant
+	c->occupants[loader_obj_id] = {true, peer_id}; // setting the flag for collision TODO: ideally loader should be a cpp class, later...
 
-	return c;
+	// rpc sent in queue handling
 }
 
 void ChunkLattice::loader_exits_chunk(Object *loader, Vector3i chunk_idx) {
 	ObjectID loader_obj_id = ObjectID(loader->get_instance_id());
+	int peer_id = loader->get("player_client_id");
 
 	if (!loaded_chunks.has(chunk_idx)) {
 		// this should not happen
@@ -103,12 +126,18 @@ void ChunkLattice::loader_exits_chunk(Object *loader, Vector3i chunk_idx) {
 	}
 
 	Chunk *c = loaded_chunks[chunk_idx];
+	// remove self from occupants
 	c->occupants.erase(loader_obj_id);
+	// if no occupants left
 	if (c->occupants.is_empty()) {
 		// unloading this chunk as no one is in it
+		// even if it is left in the queues, when it is reached lattice will see that it is not loaded, meaning it didn't have enough time to load and will skip it
 		c->queue_free();
 		loaded_chunks.erase(chunk_idx);
 	}
+
+	// deletion is not threaded and thus not queued so send rpc right away
+	if (peer_id != -1) rpc_id(peer_id, StringName("client_delete_chunk"), chunk_idx);
 }
 
 // two following functions are only called on clients
@@ -116,19 +145,24 @@ void ChunkLattice::client_update_mesh_chunk(Vector3i chunk_idx, PackedInt32Array
 	// loaders arent added as they only matter on server side
 	if (!loaded_chunks.has(chunk_idx)) {
 		// brand new load
-		Chunk *c = memnew(Chunk); // fills in raw points, loads changes, constructs mesh
+		Chunk *c = memnew(Chunk);
 		add_child(c);
-		c->setup(file_world_name, chunk_shape, chunk_cube_size, lattice_type, lattice_seed);
 		c->set_position(Vector3(chunk_idx * (chunk_shape - Vector3i(1, 1, 1))) * chunk_cube_size);
-		c->set_raw_generation_points(); // depends on global position, and no initial build needed
-		c->apply_point_changes(changes_idxs, changes_fullness_values, changes_material_values); // setting the change arrays first
-		c->set_generated_mesh(); // no initial build used so manually
+		c->setup(file_world_name, chunk_idx, chunk_shape, chunk_cube_size, lattice_type, lattice_seed);
 		loaded_chunks[chunk_idx] = c;
+		
+
+		// unlike server side we have to manually set the changes hash
+		c->add_point_hash_changes(changes_idxs, changes_fullness_values, changes_material_values);
+		chunk_data_queue.push_front(chunk_idx); // this chunk will get its' points filled in
+		chunk_mesh_queue.push_front(chunk_idx); // this chunk will generate the mesh with the points from above and then set it
 	} else {
 		// chunk is already loaded
 		Chunk *c = loaded_chunks[chunk_idx];
-		c->apply_point_changes(changes_idxs, changes_fullness_values, changes_material_values);
-		c->set_generated_mesh();
+		c->add_point_hash_changes(changes_idxs, changes_fullness_values, changes_material_values); // no need to thread
+		c->apply_point_hash_changes(); // also need to apply it manually as raw points are already loaded
+		c->mesh_resource_ready = false; // in case it gets popped earlier than collision
+		chunk_mesh_queue.push_front(chunk_idx); // just need to regenerate the mesh
 	}
 }
 
@@ -138,8 +172,7 @@ void ChunkLattice::client_update_collision_chunk(Vector3i chunk_idx) { // called
 		return;
 	}
 	
-	Chunk *c = loaded_chunks[chunk_idx];
-	c->set_generated_collision();
+	chunk_collision_queue.push_front(chunk_idx); // set the collision
 }
 
 void ChunkLattice::client_delete_chunk(Vector3i chunk_idx) {
@@ -150,8 +183,8 @@ void ChunkLattice::client_delete_chunk(Vector3i chunk_idx) {
 
 	Chunk *c = loaded_chunks[chunk_idx];
 	// unloading this chunk as we were told by rpc that we left
+	loaded_chunks.erase(chunk_idx); // as mentioned this is safe with threads
 	c->queue_free();
-	loaded_chunks.erase(chunk_idx);
 }
 
 int floordiv(int a, int b) {
@@ -197,7 +230,7 @@ Dictionary ChunkLattice::get_points(PackedVector3Array global_idxs) {
 	return points;
 }
 
-PackedVector3Array ChunkLattice::set_points_and_update(PackedVector3Array global_idxs, PackedFloat32Array fullness_values, PackedByteArray material_values) {
+PackedVector3Array ChunkLattice::set_points_and_add_for_update(PackedVector3Array global_idxs, PackedFloat32Array fullness_values, PackedByteArray material_values) {
 	// iterate through each global index, add to appropriate chunk bucket(s), after that update each chunk
 	uint64_t _size = global_idxs.size();
 	struct Modifications {
@@ -258,15 +291,127 @@ PackedVector3Array ChunkLattice::set_points_and_update(PackedVector3Array global
 		Chunk *c = loaded_chunks[_chunk_idx];
 
 		// apply changes and regenerate mesh, if collision was set regenerate it as well
-		c->apply_point_changes(kv.value.local_idxs, kv.value.fullness, kv.value.materials);
-		c->set_generated_mesh();
-		if (c->set_collision) c->set_generated_collision();
+		c->add_point_hash_changes(kv.value.local_idxs, kv.value.fullness, kv.value.materials);
+		c->apply_point_hash_changes(); // apply as raw points are alreaady loaded
+		c->mesh_resource_ready = false; // in case it gets popped earlier than collision
+		chunk_mesh_queue.push_front(_chunk_idx); // request mesh is recalculated and re-applied
+		if (c->set_collision) chunk_collision_queue.push_front(_chunk_idx); // and then reapply collision
 
 		i++;
 	}
 
 	// return the chunk idxs that were influenced
 	return updated_chunk_idxs;
+}
+
+void ChunkLattice::work_through_queues() {
+	// NOTE: for now no cap
+	int _max_len = MAX(MAX(chunk_data_queue.size(), chunk_mesh_queue.size()), chunk_collision_queue.size());
+	int num_passes = (_max_len + num_chunk_generation_threads - 1) / num_chunk_generation_threads;
+
+	for (int pass = 0; pass < num_passes; pass++) {
+		int n;
+		int chunk_i;
+		
+		// data queue
+		int _data_n = chunk_data_queue.size();
+		n = num_chunk_generation_threads < _data_n ? num_chunk_generation_threads : _data_n;
+
+		std::vector<Chunk*> _modified_chunks;
+		// start threads
+		for (chunk_i = 0; chunk_i < n;) {
+			if (chunk_data_queue.empty()) break;
+			Vector3i _chunk_idx = chunk_data_queue.back();
+			chunk_data_queue.pop_back();
+			if (!loaded_chunks.has(_chunk_idx)) continue; // chunk was deleted, skip without incrementing i
+			Chunk* c = loaded_chunks[_chunk_idx];
+
+			// chunk_generation_threads[chunk_i].instantiate();
+			// chunk_generation_threads[chunk_i]->start(callable_mp(c, &Chunk::set_data));
+			c->set_data();
+			_modified_chunks.push_back(c);
+
+			chunk_i++;
+		}
+
+		// wait for threads to finish
+		for (int t = 0; t < chunk_i; t++) {
+			// chunk_generation_threads[t]->wait_to_finish(); // joining started threads
+			// now apply the change hash that has been set already
+			Chunk* c = _modified_chunks[t];
+			c->apply_point_hash_changes();
+		}
+		
+		
+		_modified_chunks.clear();
+		// mesh data
+		int _mesh_n = chunk_mesh_queue.size();
+		n = num_chunk_generation_threads < _mesh_n ? num_chunk_generation_threads : _mesh_n;
+
+		// start threads
+		for (chunk_i = 0; chunk_i < n;) {
+			if (chunk_mesh_queue.empty()) break;
+			Vector3i _chunk_idx = chunk_mesh_queue.back();
+			chunk_mesh_queue.pop_back();
+			if (!loaded_chunks.has(_chunk_idx)) continue; // chunk was deleted, skip without incrementing i
+			Chunk* c = loaded_chunks[_chunk_idx];
+
+			// chunk_generation_threads[chunk_i].instantiate();
+			// chunk_generation_threads[chunk_i]->start(callable_mp(c, &Chunk::set_mesh_data));
+			c->set_mesh_data();
+			_modified_chunks.push_back(c);
+
+			chunk_i++;
+		}
+
+		// wait for threads to finish and apply resource changes
+		for (int t = 0; t < chunk_i; t++) {
+			// chunk_generation_threads[t]->wait_to_finish(); // joining started threads
+			Chunk* c = _modified_chunks[t];
+			
+			// send rpc
+			Dictionary d = c->get_point_changes(); // TODO this could be optimised but it's not significant (tested)
+			for (const KeyValue<ObjectID, Chunk::LoaderAttributes> &kv : c->occupants) {
+				if (kv.value.peer_id == -1) continue;
+				rpc_id(kv.value.peer_id, StringName("client_update_mesh_chunk"), c->chunk_idx, d["changes_idx"], d["changes_fullness"], d["changes_material"]);
+			}
+			
+			c->assign_mesh();
+		}
+
+		// collision (non-threaded)
+		int _collision_n = chunk_collision_queue.size();
+		n = num_chunk_generation_threads < _collision_n ? num_chunk_generation_threads : _collision_n;
+
+		std::vector<Vector3i> _deferred;          // not ready this pass
+		int examined = 0;
+		for (chunk_i = 0; chunk_i < n && examined < _collision_n; ) {
+			if (chunk_collision_queue.empty()) break;
+			Vector3i _chunk_idx = chunk_collision_queue.back();
+			chunk_collision_queue.pop_back();
+			examined++;
+
+			if (!loaded_chunks.has(_chunk_idx)) continue;   // deleted, drop it
+			Chunk *c = loaded_chunks[_chunk_idx];
+
+			if (!c->mesh_resource_ready) { // mesh still pending
+				_deferred.push_back(_chunk_idx);
+				continue;
+			}
+
+			c->assign_generated_collision();
+
+			for (const KeyValue<ObjectID, Chunk::LoaderAttributes> &kv : c->occupants) {
+				if (kv.value.peer_id == -1) continue;
+				rpc_id(kv.value.peer_id, StringName("client_update_collision_chunk"), c->chunk_idx);
+			}
+
+			chunk_i++;
+		}
+
+		// put the not-ready ones back for a later pass
+		for (const Vector3i &idx : _deferred) chunk_collision_queue.push_front(idx);
+	}
 }
 
 Chunk *ChunkLattice::get_chunk(Vector3i chunk_idx) {

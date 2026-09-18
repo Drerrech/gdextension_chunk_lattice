@@ -17,7 +17,6 @@ var local_idx: int;
 
 # server:
 # loaders call loader entered/exit functions -> chunks locally spawn, get collision and get deleted (if no loaders)
-# in addition if loader is player_type: send rpc mesh/collision/deletion
 func compute_idxs():
 	global_idx = Vector3i(
 		floori(global_position.x / Main.c_cube_size.x),
@@ -34,22 +33,13 @@ func compute_idxs():
 	local_idx = _v.x * Main.c_shape.y * Main.c_shape.z + _v.y * Main.c_shape.z + _v.z
 
 func enter_mesh_chunk(p_chunk_idx: Vector3i):
-	var c: Chunk = Main.CL.loader_enters_mesh_chunk(self, p_chunk_idx)
-	if c == null:
-		printerr("C IS NULL!!!")
-	if player_client_id != -1: # player type
-		var d = c.get_point_changes()
-		Main.CL.rpc_client_update_mesh_chunk.rpc_id(player_client_id, p_chunk_idx, d["changes_idx"], d["changes_fullness"], d["changes_material"])
+	Main.CL.loader_enters_mesh_chunk(self, p_chunk_idx)
 
 func enter_collision_chunk(p_chunk_idx: Vector3i):
 	Main.CL.loader_enters_collision_chunk(self, p_chunk_idx)
-	if player_client_id != -1: # player type
-		Main.CL.rpc_client_update_collision_chunk.rpc_id(player_client_id, p_chunk_idx)
 
 func exit_chunk(p_chunk_idx: Vector3i):
 	Main.CL.loader_exits_chunk(self, p_chunk_idx)
-	if player_client_id != -1: # player type
-		Main.CL.rpc_client_delete_chunk.rpc_id(player_client_id, p_chunk_idx)
 
 func setup() -> void:
 	if (not multiplayer.is_server()): return
