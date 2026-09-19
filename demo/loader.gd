@@ -113,7 +113,7 @@ func check_and_load() -> void:
 	for new_idx in currently_collision_loaded:
 		if not (new_idx in old_collision_loaded):
 			enter_collision_chunk(new_idx)
-	
+
 	# exit old that did not make it
 	for old_idx in old_mesh_loaded:
 		if not (old_idx in currently_mesh_loaded):

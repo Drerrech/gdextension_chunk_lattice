@@ -35,6 +35,7 @@ public:
 	int lattice_seed;
 
 	int num_chunk_generation_threads;
+	int cap_chunk_generation_passes;
 	std::vector<Ref<Thread>> chunk_generation_threads;
 	std::deque<Vector3i> chunk_data_queue;
 	std::deque<Vector3i> chunk_mesh_queue;

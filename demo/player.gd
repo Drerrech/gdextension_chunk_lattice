@@ -6,7 +6,7 @@ extends CharacterBody3D
 
 var id: int
 
-const SPEED = 8.0
+const SPEED = 16.0
 const JUMP_VELOCITY = 20
 const MOUSE_SENSITIVITY = 0.1
 

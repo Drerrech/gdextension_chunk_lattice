@@ -60,6 +60,9 @@ void Chunk::setup(String p_file_world_name, Vector3i p_chunk_idx, Vector3i p_chu
     collision_shape_resource.instantiate();
     collision_shape_instance_ptr->set_shape(collision_shape_resource);
     add_child(collision_shape_instance_ptr);
+
+    // things that should be done before threading
+    read_point_changes_into_hash();
 }
 
 int Chunk::get_idx(int i, int j, int k) {
@@ -70,8 +73,7 @@ void Chunk::set_data() {
     // terrain and props
     set_chunk_raw_data(this);
 
-    // point changes
-    read_point_changes_into_hash(); // will be set after popping from queue
+    // don't thread modifying the changes hash! will crash if request for change comes in while it is being processed!
 }
 
 // file structure:
@@ -224,8 +226,8 @@ void Chunk::set_mesh_data() {
     }
 
     // fill resources
+    mesh_arrays.clear();
     mesh_arrays.resize(Mesh::ARRAY_MAX);
-
     mesh_arrays[Mesh::ARRAY_VERTEX]  = vertex_positions;
     mesh_arrays[Mesh::ARRAY_NORMAL]  = vertex_normals;
     mesh_arrays[Mesh::ARRAY_CUSTOM0] = custom0;

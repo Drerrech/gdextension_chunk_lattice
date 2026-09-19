@@ -51,7 +51,8 @@ void ChunkLattice::setup(String p_file_world_name, Vector3i p_chunk_shape, Vecto
 
 	make_world_dir(file_world_name);
 
-	num_chunk_generation_threads = 64; // for now a fixed number
+	num_chunk_generation_threads = 8; // for now a fixed number
+	cap_chunk_generation_passes = 1;
 	for (int i = 0; i < num_chunk_generation_threads; i++) {
 		Ref<Thread> w;
 		chunk_generation_threads.push_back(w);
@@ -110,7 +111,7 @@ void ChunkLattice::loader_enters_collision_chunk(Object *loader, Vector3i chunk_
 	int peer_id = loader->get("player_client_id");
 
 	if (!loaded_chunks.has(chunk_idx)) {
-		UtilityFunctions::printerr("loader tried to call loader_enters_collision_chunk on a non-loaded chunk");
+		UtilityFunctions::printerr("loader tried to call loader_enters_collision_chunk on a non-loaded chunk", chunk_idx);
 		return;
 	}
 
@@ -133,7 +134,7 @@ void ChunkLattice::loader_exits_chunk(Object *loader, Vector3i chunk_idx) {
 
 	if (!loaded_chunks.has(chunk_idx)) {
 		// this should not happen
-		UtilityFunctions::printerr("tried to call a loader_exits_chunk on a non-loaded chunk");
+		UtilityFunctions::printerr("server: tried to call a loader_exits_chunk on a non-loaded chunk", chunk_idx);
 		return;
 	}
 
@@ -180,7 +181,7 @@ void ChunkLattice::client_update_mesh_chunk(Vector3i chunk_idx, PackedInt32Array
 
 void ChunkLattice::client_update_collision_chunk(Vector3i chunk_idx) { // called after mesh, if client was also in occupants_collision
 	if (!loaded_chunks.has(chunk_idx)) {
-		UtilityFunctions::printerr("client tried to call client_set_collision_chunk on a non-loaded chunk");
+		UtilityFunctions::printerr("client tried to call client_set_collision_chunk on a non-loaded chunk", chunk_idx);
 		return;
 	}
 	
@@ -188,8 +189,8 @@ void ChunkLattice::client_update_collision_chunk(Vector3i chunk_idx) { // called
 }
 
 void ChunkLattice::client_delete_chunk(Vector3i chunk_idx) {
-	if (!loaded_chunks.has(chunk_idx)) {
-		UtilityFunctions::printerr("tried to call a loader_exits_chunk on a non-loaded chunk");
+	if (!loaded_chunks.has(chunk_idx)) { // server did not finish chunk, did not tell us to make it yet also rpcs are reliable and ordered so thankfully it is not possible to get a mesh rpc for a deleted chunk
+		// UtilityFunctions::printerr("client: tried to call a loader_exits_chunk on a non-loaded chunk", chunk_idx);
 		return;
 	}
 
@@ -224,7 +225,7 @@ Dictionary ChunkLattice::get_points(PackedVector3Array global_idxs) {
 
 		// raise error if chunk is not loaded
 		if (!loaded_chunks.has(chunk_idx)) {
-			UtilityFunctions::printerr("tried getting a value of a non-loaded chunk");
+			UtilityFunctions::printerr("tried getting a value of a non-loaded chunk", chunk_idx);
 			return Dictionary();
 		}
 		
@@ -292,7 +293,7 @@ void ChunkLattice::set_points_and_add_for_update(PackedVector3Array global_idxs,
 
 		// raise error if chunk is not loaded
 		if (!loaded_chunks.has(_chunk_idx)) {
-			UtilityFunctions::printerr("tried setting a value of a non-loaded chunk");
+			UtilityFunctions::printerr("tried setting a value of a non-loaded chunk", _chunk_idx);
 			return;
 		}
 
@@ -300,17 +301,22 @@ void ChunkLattice::set_points_and_add_for_update(PackedVector3Array global_idxs,
 
 		// apply changes and regenerate mesh, if collision was set regenerate it as well
 		c->add_point_hash_changes(kv.value.local_idxs, kv.value.fullness, kv.value.materials);
-		c->apply_point_hash_changes(); // apply as raw points are alreaady loaded
-		c->mesh_resource_ready = false; // in case it gets popped earlier than collision
-		chunk_mesh_queue.push_front(_chunk_idx); // request mesh is recalculated and re-applied
+		// don't apply them, will be applied when popped, applying now used to crash if chunk was still being processed
+		
+		// add to queue only if chunk already went through the process of mesh, because otherwise it is currently doing it
+		if (c->mesh_resource_ready) {
+			c->mesh_resource_ready = false; // in case it gets popped earlier than collision
+			chunk_mesh_queue.push_front(_chunk_idx); // request mesh is recalculated and re-applied
+		}
+		
 		if (c->set_collision) chunk_collision_queue.push_front(_chunk_idx); // and then reapply collision
 	}
 }
 
 void ChunkLattice::work_through_queues() {
-	// NOTE: for now no cap
+	// NOTE: data load can't happen without mesh load, however mesh can happen alone, so apply_point_hash_changes is run in mesh
 	int _max_len = MAX(MAX(chunk_data_queue.size(), chunk_mesh_queue.size()), chunk_collision_queue.size());
-	int num_passes = (_max_len + num_chunk_generation_threads - 1) / num_chunk_generation_threads;
+	int num_passes = MIN(cap_chunk_generation_passes, (_max_len + num_chunk_generation_threads - 1) / num_chunk_generation_threads);
 
 	for (int pass = 0; pass < num_passes; pass++) {
 		int n;
@@ -338,9 +344,6 @@ void ChunkLattice::work_through_queues() {
 		// wait for threads to finish
 		for (int t = 0; t < chunk_i; t++) {
 			chunk_generation_threads[t]->wait_to_finish(); // joining started threads
-			// now apply the change hash that has been set already
-			Chunk* c = _modified_chunks[t];
-			c->apply_point_hash_changes();
 		}
 		
 		
@@ -355,7 +358,12 @@ void ChunkLattice::work_through_queues() {
 			Vector3i _chunk_idx = chunk_mesh_queue.back();
 			chunk_mesh_queue.pop_back();
 			if (!loaded_chunks.has(_chunk_idx)) continue; // chunk was deleted, skip without incrementing i
+			
 			Chunk* c = loaded_chunks[_chunk_idx];
+
+			// chunk is here either because it's brand new or an update happened, so need to apply changes
+			// obviously we need this before we make the mesh
+			c->apply_point_hash_changes();
 			
 			chunk_generation_threads[chunk_i]->start(callable_mp(c, &Chunk::set_mesh_data));
 			_modified_chunks.push_back(c);
@@ -398,7 +406,9 @@ void ChunkLattice::work_through_queues() {
 				continue;
 			}
 
-			c->assign_generated_collision();
+			if (!c->set_collision) { // if two loaders at the same time request, will ahve same chunk in one queue
+				c->assign_generated_collision();
+			}
 
 			for (const KeyValue<ObjectID, Chunk::LoaderAttributes> &kv : c->occupants) {
 				if (kv.value.peer_id == -1) continue;
