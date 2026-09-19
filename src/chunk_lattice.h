@@ -6,7 +6,7 @@
 #include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
-// #include <godot_cpp/classes/thread.hpp>
+#include <godot_cpp/classes/thread.hpp>
 #include <godot_cpp/classes/multiplayer_api.hpp>
 #include <godot_cpp/classes/multiplayer_peer.hpp>
 
@@ -35,7 +35,7 @@ public:
 	int lattice_seed;
 
 	int num_chunk_generation_threads;
-	// std::vector<Ref<Thread>> chunk_generation_threads; TODO
+	std::vector<Ref<Thread>> chunk_generation_threads;
 	std::deque<Vector3i> chunk_data_queue;
 	std::deque<Vector3i> chunk_mesh_queue;
 	std::deque<Vector3i> chunk_collision_queue;
@@ -56,7 +56,7 @@ public:
 	void client_delete_chunk(Vector3i chunk_idx);
 
 	Dictionary get_points(PackedVector3Array global_idxs);
-	PackedVector3Array set_points_and_add_for_update(PackedVector3Array global_idxs, PackedFloat32Array fullness_values, PackedByteArray material_values);
+	void set_points_and_add_for_update(PackedVector3Array global_idxs, PackedFloat32Array fullness_values, PackedByteArray material_values);
 
 	void work_through_queues();
 

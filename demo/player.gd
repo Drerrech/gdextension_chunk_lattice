@@ -33,6 +33,7 @@ var pressed_buttons = {
 @onready var text_mesh = $TextMesh
 
 func _ready() -> void:
+	Main.CL.start_load_timer()
 	name = str(id)
 	text_mesh.mesh.text = str(id)
 	loader.player_client_id = id

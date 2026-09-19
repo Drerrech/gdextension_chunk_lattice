@@ -37,7 +37,9 @@ ChunkLattice::ChunkLattice() {
 }
 
 ChunkLattice::~ChunkLattice() {
-	
+	for (int i = 0; i < num_chunk_generation_threads; i++) {
+		chunk_generation_threads[i]->wait_to_finish(); // TODO do i need this?
+	}
 }
 
 void ChunkLattice::setup(String p_file_world_name, Vector3i p_chunk_shape, Vector3 p_chunk_cube_size, int p_lattice_type, int p_lattice_seed) {
@@ -49,11 +51,12 @@ void ChunkLattice::setup(String p_file_world_name, Vector3i p_chunk_shape, Vecto
 
 	make_world_dir(file_world_name);
 
-	num_chunk_generation_threads = 1; // for now a fixed number
-	// for (int _ = 0; _ < num_chunk_generation_threads; _++) {
-	// 	Ref<Thread> w;
-	// 	chunk_generation_threads.push_back(w);
-	// } TODO
+	num_chunk_generation_threads = 4; // for now a fixed number
+	for (int i = 0; i < num_chunk_generation_threads; i++) {
+		Ref<Thread> w;
+		chunk_generation_threads.push_back(w);
+		chunk_generation_threads[i].instantiate();
+	}
 
 	Dictionary _cfg;
 	_cfg["rpc_mode"] = MultiplayerAPI::RPC_MODE_AUTHORITY;
@@ -69,8 +72,10 @@ void ChunkLattice::loader_enters_mesh_chunk(Object *loader, Vector3i chunk_idx) 
 	ObjectID loader_obj_id = ObjectID(loader->get_instance_id());
 	int peer_id = loader->get("player_client_id");
 
+	bool chunk_loaded = loaded_chunks.has(chunk_idx);
+
 	// isn't loaded -> add as child add to raw data and mesh queue
-	if (!loaded_chunks.has(chunk_idx)) {
+	if (!chunk_loaded) {
 		// brand new load
 		Chunk *c = memnew(Chunk);
 		add_child(c); // voodoo, somehow placing this before setting the position fixed a bug
@@ -81,12 +86,17 @@ void ChunkLattice::loader_enters_mesh_chunk(Object *loader, Vector3i chunk_idx) 
 		chunk_data_queue.push_front(chunk_idx); // this chunk will get its' points filled in
 		chunk_mesh_queue.push_front(chunk_idx); // this chunk will generate the mesh with the points from above and then set it
 	}
-
+	
 	Chunk *c = loaded_chunks[chunk_idx];
 
 	if (c->occupants.has(loader_obj_id)) {
 		UtilityFunctions::printerr("loader tried to call loader_enters_mesh_chunk while being in the loaders list");
 		return;
+	}
+
+	if (chunk_loaded && peer_id != -1 && c->mesh_resource_ready) { // checking for mesh_resource_ready because if it is not ready it is still in the queue and thus rpc will be sent on pop
+		Dictionary d = c->get_point_changes();
+		rpc_id(peer_id, StringName("client_update_mesh_chunk"), chunk_idx, d["changes_idx"], d["changes_fullness"], d["changes_material"]);
 	}
 
 	// mark self as occupant
@@ -107,6 +117,8 @@ void ChunkLattice::loader_enters_collision_chunk(Object *loader, Vector3i chunk_
 	Chunk *c = loaded_chunks[chunk_idx];
 	if (!c->set_collision) { // loader doesn't change data so this is fine, client can't make this assumption however
 		chunk_collision_queue.push_front(chunk_idx); // this chunk will get its' collision resource set from the mesh
+	} else if (peer_id != -1) {
+		rpc_id(peer_id, StringName("client_update_collision_chunk"), chunk_idx);
 	}
 
 	// mark self as occupant
@@ -230,7 +242,7 @@ Dictionary ChunkLattice::get_points(PackedVector3Array global_idxs) {
 	return points;
 }
 
-PackedVector3Array ChunkLattice::set_points_and_add_for_update(PackedVector3Array global_idxs, PackedFloat32Array fullness_values, PackedByteArray material_values) {
+void ChunkLattice::set_points_and_add_for_update(PackedVector3Array global_idxs, PackedFloat32Array fullness_values, PackedByteArray material_values) {
 	// iterate through each global index, add to appropriate chunk bucket(s), after that update each chunk
 	uint64_t _size = global_idxs.size();
 	struct Modifications {
@@ -275,18 +287,14 @@ PackedVector3Array ChunkLattice::set_points_and_add_for_update(PackedVector3Arra
 	}
 
 	// iterate throgh the buckets and update chunks
-	PackedVector3Array updated_chunk_idxs; updated_chunk_idxs.resize(chunk_buckets.size());
-	int64_t i = 0;
 	for (const KeyValue<Vector3i, Modifications> &kv : chunk_buckets) {
 		Vector3i _chunk_idx = kv.key;
 
 		// raise error if chunk is not loaded
 		if (!loaded_chunks.has(_chunk_idx)) {
 			UtilityFunctions::printerr("tried setting a value of a non-loaded chunk");
-			return PackedVector3Array();
+			return;
 		}
-
-		updated_chunk_idxs.set(i, Vector3(_chunk_idx));
 
 		Chunk *c = loaded_chunks[_chunk_idx];
 
@@ -296,12 +304,7 @@ PackedVector3Array ChunkLattice::set_points_and_add_for_update(PackedVector3Arra
 		c->mesh_resource_ready = false; // in case it gets popped earlier than collision
 		chunk_mesh_queue.push_front(_chunk_idx); // request mesh is recalculated and re-applied
 		if (c->set_collision) chunk_collision_queue.push_front(_chunk_idx); // and then reapply collision
-
-		i++;
 	}
-
-	// return the chunk idxs that were influenced
-	return updated_chunk_idxs;
 }
 
 void ChunkLattice::work_through_queues() {
@@ -326,9 +329,7 @@ void ChunkLattice::work_through_queues() {
 			if (!loaded_chunks.has(_chunk_idx)) continue; // chunk was deleted, skip without incrementing i
 			Chunk* c = loaded_chunks[_chunk_idx];
 
-			// chunk_generation_threads[chunk_i].instantiate();
-			// chunk_generation_threads[chunk_i]->start(callable_mp(c, &Chunk::set_data));
-			c->set_data();
+			chunk_generation_threads[chunk_i]->start(callable_mp(c, &Chunk::set_data));
 			_modified_chunks.push_back(c);
 
 			chunk_i++;
@@ -336,7 +337,7 @@ void ChunkLattice::work_through_queues() {
 
 		// wait for threads to finish
 		for (int t = 0; t < chunk_i; t++) {
-			// chunk_generation_threads[t]->wait_to_finish(); // joining started threads
+			chunk_generation_threads[t]->wait_to_finish(); // joining started threads
 			// now apply the change hash that has been set already
 			Chunk* c = _modified_chunks[t];
 			c->apply_point_hash_changes();
@@ -355,10 +356,8 @@ void ChunkLattice::work_through_queues() {
 			chunk_mesh_queue.pop_back();
 			if (!loaded_chunks.has(_chunk_idx)) continue; // chunk was deleted, skip without incrementing i
 			Chunk* c = loaded_chunks[_chunk_idx];
-
-			// chunk_generation_threads[chunk_i].instantiate();
-			// chunk_generation_threads[chunk_i]->start(callable_mp(c, &Chunk::set_mesh_data));
-			c->set_mesh_data();
+			
+			chunk_generation_threads[chunk_i]->start(callable_mp(c, &Chunk::set_mesh_data));
 			_modified_chunks.push_back(c);
 
 			chunk_i++;
@@ -366,7 +365,7 @@ void ChunkLattice::work_through_queues() {
 
 		// wait for threads to finish and apply resource changes
 		for (int t = 0; t < chunk_i; t++) {
-			// chunk_generation_threads[t]->wait_to_finish(); // joining started threads
+			chunk_generation_threads[t]->wait_to_finish(); // joining started threads
 			Chunk* c = _modified_chunks[t];
 			
 			// send rpc

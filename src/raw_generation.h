@@ -21,24 +21,23 @@ TERRAIN OUTLINE
 flat with height defined by 4.f * simplex(2.0 * x)
 */
 
-static inline PointValue get_raw_point(int lattice_type, int seed, Vector3 global_point_pos) {    
-    static fnl_state simplex2_plain = []{
-        fnl_state s = fnlCreateState();
-        s.noise_type = FNL_NOISE_OPENSIMPLEX2;
-        // frequency, octaves, etc. — all the unchanging config, set once
-        return s;
-    }();
 
+static inline fnl_state make_noise_state(int lattice_type, int seed) {
+    fnl_state s = fnlCreateState();
+    switch (lattice_type) {
+        default:
+            s.noise_type = FNL_NOISE_OPENSIMPLEX2;
+            break;
+    }
+    s.seed = seed;
+    return s;
+}
 
-    simplex2_plain.seed = seed;
-
-    PointValue fullness_and_material;
-    
-    // fullness_and_material[String("fullness")] = fnlGetNoise3D(&simplex2_plain, 16.f * global_point_pos.x, 16.f * global_point_pos.y, 16.f * global_point_pos.z);
-    fullness_and_material.fullness = (global_point_pos.y > 0.f + 2.f * fnlGetNoise3D(&simplex2_plain, 2.f * global_point_pos.x, 2.f * global_point_pos.y, 2.f * global_point_pos.z)) ? -1.f : 1.f;
-    fullness_and_material.material = 1;
-
-    return fullness_and_material;
+static inline PointValue get_raw_point(fnl_state &state, Vector3 global_point_pos) {
+    PointValue v;
+    v.fullness = (global_point_pos.y > 0.f + 2.f * fnlGetNoise3D(&state, 2.f*global_point_pos.x, 2.f*global_point_pos.y, 2.f*global_point_pos.z)) ? -1.f : 1.f;
+    v.material = 1;
+    return v;
 }
 
 static inline ChunkChanges get_structure_changes(Vector3 chunk_pos, Vector3i chunk_shape, Vector3 chunk_cube_size, Vector3 cell_size, Vector3i struct_shape, const float *structure_lattice, Vector2i lattice_shape_yz) {
@@ -137,6 +136,7 @@ static inline ChunkChanges get_chunk_structure_changes(Vector3 chunk_pos, Vector
 
 static inline void set_chunk_raw_data(Chunk* chunk) {
     Vector3 chunk_pos = chunk->global_pos;
+    fnl_state noise_state = make_noise_state(chunk->lattice_type, chunk->lattice_seed);
 
     // terrain
 	for (int i = 0; i < chunk->chunk_shape.x; i++) {
@@ -145,7 +145,7 @@ static inline void set_chunk_raw_data(Chunk* chunk) {
 				int idx = chunk->get_idx(i, j, k);
 				Vector3 global_pos(chunk_pos + chunk->chunk_cube_size*Vector3(i, j, k));
 
-                PointValue p = get_raw_point(chunk->lattice_type, chunk->lattice_seed, global_pos);
+                PointValue p = get_raw_point(noise_state, global_pos);
 				chunk->point_fullness_values.set(idx, p.fullness);
 				chunk->point_material_values.set(idx, p.material);
 			}

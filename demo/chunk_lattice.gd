@@ -3,7 +3,7 @@ extends ChunkLattice
 @onready var Main = get_tree().root.get_node("main")
 
 var _t_start := 0
-var _timing := true
+var _timing := false
 var _last_count := -1
 var _idle_frames := 0
 
