@@ -11,6 +11,7 @@
 #include <godot_cpp/classes/multiplayer_peer.hpp>
 
 #include <deque>
+#include <vector>
 
 namespace godot {
 /*
