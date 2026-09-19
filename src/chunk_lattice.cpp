@@ -62,7 +62,7 @@ void ChunkLattice::setup(String p_file_world_name, Vector3i p_chunk_shape, Vecto
 	_cfg["rpc_mode"] = MultiplayerAPI::RPC_MODE_AUTHORITY;
 	_cfg["transfer_mode"] = MultiplayerPeer::TRANSFER_MODE_RELIABLE;
 	_cfg["call_local"] = false;
-	_cfg["channel"] = 0;
+	_cfg["channel"] = 10;
 	rpc_config("client_update_mesh_chunk", _cfg);
 	rpc_config("client_update_collision_chunk", _cfg);
     rpc_config("client_delete_chunk", _cfg);
