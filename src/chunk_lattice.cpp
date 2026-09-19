@@ -51,7 +51,7 @@ void ChunkLattice::setup(String p_file_world_name, Vector3i p_chunk_shape, Vecto
 
 	make_world_dir(file_world_name);
 
-	num_chunk_generation_threads = 4; // for now a fixed number
+	num_chunk_generation_threads = 64; // for now a fixed number
 	for (int i = 0; i < num_chunk_generation_threads; i++) {
 		Ref<Thread> w;
 		chunk_generation_threads.push_back(w);
