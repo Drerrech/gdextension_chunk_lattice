@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://cceeylv1v33ra"]
 
 [ext_resource type="Script" uid="uid://btnu8vkwibi0e" path="res://bomb.gd" id="1_573fp"]
-[ext_resource type="PackedScene" uid="uid://bjaeso3bry1ei" path="res://loader.tscn" id="2_4fn8o"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_7pfnl"]
 
@@ -62,9 +61,9 @@ draw_pass_1 = SubResource("QuadMesh_k5bgr")
 wait_time = 3.0
 autostart = true
 
-[node name="loader" parent="." unique_id=541202290 instance=ExtResource("2_4fn8o")]
-
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=1710801501]
 replication_config = SubResource("SceneReplicationConfig_4fn8o")
+
+[node name="ChunkLoader" type="ChunkLoader" parent="." unique_id=1923870875]
 
 [connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]

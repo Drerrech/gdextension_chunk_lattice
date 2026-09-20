@@ -2,6 +2,7 @@
 
 #include "chunk_lattice.h"
 #include "chunk.h"
+#include "chunk_loader.h"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/defs.hpp>
@@ -16,6 +17,7 @@ void initialize_example_module(ModuleInitializationLevel p_level) {
 
 	GDREGISTER_CLASS(ChunkLattice);
 	GDREGISTER_CLASS(Chunk);
+	GDREGISTER_CLASS(ChunkLoader);
 }
 
 void uninitialize_example_module(ModuleInitializationLevel p_level) {

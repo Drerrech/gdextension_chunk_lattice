@@ -1,5 +1,7 @@
 #include "chunk_lattice.h"
 
+#include "chunk_loader.h"
+
 #include "constants.h"
 
 #include <godot_cpp/core/class_db.hpp>
@@ -47,11 +49,18 @@ void ChunkLattice::setup(String p_file_world_name, Vector3i p_chunk_shape, Vecto
 	lattice_seed = p_lattice_seed;
 
 	make_world_dir(file_world_name);
+
+	Dictionary _cfg;
+	_cfg["rpc_mode"] = MultiplayerAPI::RPC_MODE_AUTHORITY;
+	_cfg["transfer_mode"] = MultiplayerPeer::TRANSFER_MODE_RELIABLE;
+	_cfg["call_local"] = false;
+	_cfg["channel"] = 0;
+	rpc_config("client_update_mesh_chunk", _cfg);
+	rpc_config("client_update_collision_chunk", _cfg);
+    rpc_config("client_delete_chunk", _cfg);
 }
 
-Chunk *ChunkLattice::loader_enters_mesh_chunk(Object *loader, Vector3i chunk_idx) {
-	ObjectID loader_obj_id = ObjectID(loader->get_instance_id());
-
+Chunk *ChunkLattice::loader_enters_mesh_chunk(ChunkLoader *loader, Vector3i chunk_idx) {
 	if (!loaded_chunks.has(chunk_idx)) {
 		// brand new load
 		Chunk *c = memnew(Chunk); // fills in raw points, loads changes, constructs mesh
@@ -65,19 +74,23 @@ Chunk *ChunkLattice::loader_enters_mesh_chunk(Object *loader, Vector3i chunk_idx
 	// below chunk might have been already loaded (or not)
 	Chunk *c = loaded_chunks[chunk_idx];
 
-	if (c->occupants.has(loader_obj_id)) {
+	if (c->occupants.has(loader)) {
 		UtilityFunctions::printerr("loader tried to call loader_enters_mesh_chunk while being in the loaders list");
 		return nullptr;
 	}
 	
-	c->occupants[loader_obj_id] = {false}; // collision, not yet
+	c->occupants.insert(loader);
+
+	int peer_id = loader->peer_id;
+	if (peer_id != -1) {
+		Dictionary d = c->get_point_changes();
+		rpc_id(peer_id, StringName("client_update_mesh_chunk"), chunk_idx, d["changes_idx"], d["changes_fullness"], d["changes_material"]);
+	}
 
 	return c;
 }
 
-Chunk *ChunkLattice::loader_enters_collision_chunk(Object *loader, Vector3i chunk_idx) {
-	ObjectID loader_obj_id = ObjectID(loader->get_instance_id());
-
+Chunk *ChunkLattice::loader_enters_collision_chunk(ChunkLoader *loader, Vector3i chunk_idx) {
 	if (!loaded_chunks.has(chunk_idx)) {
 		UtilityFunctions::printerr("loader tried to call loader_enters_collision_chunk on a non-loaded chunk");
 		return nullptr;
@@ -87,28 +100,34 @@ Chunk *ChunkLattice::loader_enters_collision_chunk(Object *loader, Vector3i chun
 	if (!c->set_collision) { // loader doesn't change data so this is fine, client can't make this assumption however
 		c->set_generated_collision();
 	}
+	
+	c->occupants.insert(loader);
 
-	c->occupants[loader_obj_id] = {true}; // setting the flag for collision
+	int peer_id = loader->peer_id;
+	if (peer_id != -1) {
+		rpc_id(peer_id, StringName("client_update_collision_chunk"), chunk_idx);
+	}
 
 	return c;
 }
 
-void ChunkLattice::loader_exits_chunk(Object *loader, Vector3i chunk_idx) {
-	ObjectID loader_obj_id = ObjectID(loader->get_instance_id());
-
+void ChunkLattice::loader_exits_chunk(ChunkLoader *loader, Vector3i chunk_idx) {
 	if (!loaded_chunks.has(chunk_idx)) {
 		// this should not happen
-		UtilityFunctions::printerr("tried to call a loader_exits_chunk on a non-loaded chunk");
+		UtilityFunctions::printerr("server: tried to call a loader_exits_chunk on a non-loaded chunk");
 		return;
 	}
 
 	Chunk *c = loaded_chunks[chunk_idx];
-	c->occupants.erase(loader_obj_id);
+	c->occupants.erase(loader);
 	if (c->occupants.is_empty()) {
 		// unloading this chunk as no one is in it
 		c->queue_free();
 		loaded_chunks.erase(chunk_idx);
 	}
+
+	int peer_id = loader->peer_id;
+	if (peer_id != -1) rpc_id(peer_id, StringName("client_delete_chunk"), chunk_idx);
 }
 
 // two following functions are only called on clients
@@ -144,7 +163,7 @@ void ChunkLattice::client_update_collision_chunk(Vector3i chunk_idx) { // called
 
 void ChunkLattice::client_delete_chunk(Vector3i chunk_idx) {
 	if (!loaded_chunks.has(chunk_idx)) {
-		UtilityFunctions::printerr("tried to call a loader_exits_chunk on a non-loaded chunk");
+		UtilityFunctions::printerr("client: tried to call a loader_exits_chunk on a non-loaded chunk");
 		return;
 	}
 
@@ -152,12 +171,6 @@ void ChunkLattice::client_delete_chunk(Vector3i chunk_idx) {
 	// unloading this chunk as we were told by rpc that we left
 	c->queue_free();
 	loaded_chunks.erase(chunk_idx);
-}
-
-int floordiv(int a, int b) {
-    int q = a / b;
-    if ((a % b != 0) && ((a < 0) != (b < 0))) q--;
-    return q;
 }
 
 Dictionary ChunkLattice::get_points(PackedVector3Array global_idxs) {
@@ -197,7 +210,7 @@ Dictionary ChunkLattice::get_points(PackedVector3Array global_idxs) {
 	return points;
 }
 
-PackedVector3Array ChunkLattice::set_points_and_update(PackedVector3Array global_idxs, PackedFloat32Array fullness_values, PackedByteArray material_values) {
+void ChunkLattice::set_points_and_update(PackedVector3Array global_idxs, PackedFloat32Array fullness_values, PackedByteArray material_values) {
 	// iterate through each global index, add to appropriate chunk bucket(s), after that update each chunk
 	uint64_t _size = global_idxs.size();
 	struct Modifications {
@@ -242,31 +255,31 @@ PackedVector3Array ChunkLattice::set_points_and_update(PackedVector3Array global
 	}
 
 	// iterate throgh the buckets and update chunks
-	PackedVector3Array updated_chunk_idxs; updated_chunk_idxs.resize(chunk_buckets.size());
-	int64_t i = 0;
 	for (const KeyValue<Vector3i, Modifications> &kv : chunk_buckets) {
-		Vector3i _chunk_idx = kv.key;
+		Vector3i chunk_idx = kv.key;
 
 		// raise error if chunk is not loaded
-		if (!loaded_chunks.has(_chunk_idx)) {
+		if (!loaded_chunks.has(chunk_idx)) {
 			UtilityFunctions::printerr("tried setting a value of a non-loaded chunk");
-			return PackedVector3Array();
+			return;
 		}
 
-		updated_chunk_idxs.set(i, Vector3(_chunk_idx));
-
-		Chunk *c = loaded_chunks[_chunk_idx];
+		Chunk *c = loaded_chunks[chunk_idx];
 
 		// apply changes and regenerate mesh, if collision was set regenerate it as well
 		c->apply_point_changes(kv.value.local_idxs, kv.value.fullness, kv.value.materials);
+		
 		c->set_generated_mesh();
 		if (c->set_collision) c->set_generated_collision();
 
-		i++;
+		for (ChunkLoader *occupant : c->occupants) {
+			if (occupant->peer_id == -1) continue;
+			
+			rpc_id(occupant->peer_id, StringName("client_update_mesh_chunk"), chunk_idx, kv.value.local_idxs, kv.value.fullness, kv.value.materials);
+			
+			if (c->set_collision) rpc_id(occupant->peer_id, StringName("client_update_collision_chunk"), chunk_idx);
+		}
 	}
-
-	// return the chunk idxs that were influenced
-	return updated_chunk_idxs;
 }
 
 Chunk *ChunkLattice::get_chunk(Vector3i chunk_idx) {

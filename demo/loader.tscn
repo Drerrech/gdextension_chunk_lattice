@@ -1,6 +1,0 @@
-[gd_scene format=3 uid="uid://bjaeso3bry1ei"]
-
-[ext_resource type="Script" uid="uid://djd03y7qltymw" path="res://loader.gd" id="1_hyeqr"]
-
-[node name="loader" type="Node3D" unique_id=541202290]
-script = ExtResource("1_hyeqr")

@@ -1,6 +1,8 @@
 #ifndef RAW_GENERATION_H
 #define RAW_GENERATION_H
 
+#include "chunk.h"
+
 #include <constants.h>
 #include <godot_cpp/variant/variant.hpp>
 #include <godot_cpp/variant/string.hpp>

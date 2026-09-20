@@ -272,19 +272,8 @@ Dictionary Chunk::get_point_changes() {
 
 Array Chunk::get_occupants() {
     Array arr;
-
-    for (KeyValue<ObjectID, LoaderAttributes> &kv : occupants) {
-        Object* loader = ObjectDB::get_instance(kv.key);
-        if (loader == nullptr) {
-            UtilityFunctions::printerr("nulled loader was not removed from occupants");
-            return Array();
-        }
-        
-        Dictionary d;
-        d[String("loader")] = loader;
-        d[String("collision")] = kv.value.collision;
-        arr.append(d);
+    for (ChunkLoader *loader : occupants) {
+        arr.append(loader);
     }
-    
     return arr;
 }

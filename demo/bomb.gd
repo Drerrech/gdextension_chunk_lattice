@@ -1,16 +1,18 @@
 extends RigidBody3D
 
-@onready var loader = $loader
+@onready var Main = get_tree().root.get_node("main")
+
+@onready var loader = $ChunkLoader
 
 var explosion_rad: int = 5
 
 func _ready() -> void:
-	loader.mesh_load_cube_rad = 2
-	loader.collision_load_cube_rad = 2
-	loader.setup()
+	if multiplayer.is_server():
+		loader.setup(Main.CL, -1, 2, 2)
 
 func _physics_process(delta: float) -> void:
-	loader.check_and_load()
+	if multiplayer.is_server():
+		loader.check_and_load()
 
 func _on_timer_timeout() -> void:
 	if (not multiplayer.is_server()): return

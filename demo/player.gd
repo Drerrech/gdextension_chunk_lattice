@@ -6,7 +6,7 @@ extends CharacterBody3D
 
 var id: int
 
-const SPEED = 8.0
+const SPEED = 800.0
 const JUMP_VELOCITY = 5
 const MOUSE_SENSITIVITY = 0.1
 
@@ -25,7 +25,7 @@ var pressed_buttons = {
 	"m2": false
 }
 
-@onready var loader = $loader
+@onready var loader = $ChunkLoader
 
 @onready var torso = $Torso
 @onready var head = $Torso/Head
@@ -35,10 +35,9 @@ var pressed_buttons = {
 func _ready() -> void:
 	name = str(id)
 	text_mesh.mesh.text = str(id)
-	loader.player_client_id = id
-	loader.mesh_load_cube_rad = 3 # if its too large it can't load in time and physics process starts and everything explodes, make it wait somehow
-	loader.collision_load_cube_rad = 2
-	loader.setup()
+	
+	if multiplayer.is_server(): # IMPORTANT: guard loaders with this
+		loader.setup(Main.CL, id, 3, 2)
 	
 	# owner only
 	if is_multiplayer_authority():
@@ -51,7 +50,6 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	loader.check_and_load()
 	# owner only - synced
 	if is_multiplayer_authority():
 		# Add the gravity.
@@ -59,7 +57,7 @@ func _physics_process(delta: float) -> void:
 			velocity += get_gravity() * delta
 
 		# Handle jump.
-		if Input.is_action_just_pressed("space"):
+		if Input.is_action_pressed("space"):
 			velocity.y = JUMP_VELOCITY
 
 		# Get the input direction and handle the movement/deceleration.
@@ -75,8 +73,10 @@ func _physics_process(delta: float) -> void:
 
 		move_and_slide()
 
+
 func _process(delta: float) -> void:
 	if multiplayer.is_server():
+		loader.check_and_load()
 		server_side_update(delta)
 
 var _drill_interval = 0.2

@@ -19,22 +19,6 @@ func get_global_idx(global_pos):
 	)
 	return global_idx
 
-func send_updates(affected_chunk_idxs):
-	for _f_idx in affected_chunk_idxs:
-		var chunk_idx = Vector3i(_f_idx.round())
-		var chunk: Chunk = CL.get_chunk(chunk_idx)
-		var occupants_arr = chunk.get_occupants()
-		for occ_d in occupants_arr:
-			var loader_instance: Loader = occ_d["loader"]
-			var collision = occ_d["collision"]
-			
-			if loader_instance.player_client_id != -1:
-				var chunk_changes_d = chunk.get_point_changes()
-				CL.rpc_client_update_mesh_chunk.rpc_id(loader_instance.player_client_id, chunk_idx, chunk_changes_d["changes_idx"], chunk_changes_d["changes_fullness"], chunk_changes_d["changes_material"])
-				if collision:
-					CL.rpc_client_update_collision_chunk.rpc_id(loader_instance.player_client_id, chunk_idx)
-
-
 func uniform_dumb_overwrite_cube_set(cube_corner: Vector3i, cube_side: int, fullness: float, material: int):
 	if (not multiplayer.is_server()): return
 	
@@ -56,8 +40,4 @@ func uniform_dumb_overwrite_cube_set(cube_corner: Vector3i, cube_side: int, full
 				i += 1
 	
 	# apply changes on server side and get idx of affected chunks
-	var affected_chunk_idxs: PackedVector3Array # need to later cast to v3i
-	affected_chunk_idxs = CL.set_points_and_update(global_idxs, fullness_values, material_values)
-	
-	# iterate through chunks, iterate through occupants, send updates to all players
-	send_updates(affected_chunk_idxs)
+	CL.set_points_and_update(global_idxs, fullness_values, material_values)

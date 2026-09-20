@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://durr4htj3midt"]
 
 [ext_resource type="Script" uid="uid://c4paqtqanneeh" path="res://player.gd" id="1_4flbx"]
-[ext_resource type="PackedScene" uid="uid://bjaeso3bry1ei" path="res://loader.tscn" id="2_onrkg"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_sh265"]
 size = Vector3(1, 2, 1)
@@ -67,4 +66,4 @@ mesh = SubResource("TextMesh_4flbx")
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=129574304]
 replication_config = SubResource("SceneReplicationConfig_4flbx")
 
-[node name="loader" parent="." unique_id=541202290 instance=ExtResource("2_onrkg")]
+[node name="ChunkLoader" type="ChunkLoader" parent="." unique_id=164983360]

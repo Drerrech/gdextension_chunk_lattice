@@ -10,6 +10,9 @@
 #include <godot_cpp/classes/file_access.hpp>
 
 namespace godot {
+
+class ChunkLoader;
+
 /*
 Chunk
 
@@ -32,10 +35,7 @@ public:
 	int lattice_type;
 	int lattice_seed;
 
-	struct LoaderAttributes {
-        bool collision;
-    };
-	HashMap<ObjectID, LoaderAttributes> occupants;
+	HashSet<ChunkLoader *> occupants;
 
 	PackedFloat32Array point_fullness_values; // [-1, 1]
 	PackedByteArray point_material_values; // {0, 1, ... 255}
