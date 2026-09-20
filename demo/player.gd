@@ -6,7 +6,7 @@ extends CharacterBody3D
 
 var id: int
 
-const SPEED = 800.0
+const SPEED = 16.0
 const JUMP_VELOCITY = 5
 const MOUSE_SENSITIVITY = 0.1
 
@@ -76,7 +76,9 @@ func _physics_process(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	if multiplayer.is_server():
+		var time = Time.get_ticks_msec()
 		loader.check_and_load()
+		print("passed: ", Time.get_ticks_msec() - time)
 		server_side_update(delta)
 
 var _drill_interval = 0.2
