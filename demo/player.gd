@@ -37,7 +37,7 @@ func _ready() -> void:
 	text_mesh.mesh.text = str(id)
 	
 	if multiplayer.is_server(): # IMPORTANT: guard loaders with this
-		loader.setup(Main.CL, id, 3, 2)
+		loader.setup(Main.CL, id, 7, 2)
 	
 	# owner only
 	if is_multiplayer_authority():
@@ -76,9 +76,9 @@ func _physics_process(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	if multiplayer.is_server():
-		var time = Time.get_ticks_msec()
+		#var time = Time.get_ticks_msec()
 		loader.check_and_load()
-		print("passed: ", Time.get_ticks_msec() - time)
+		#if (Time.get_ticks_msec() - time > 10): print("passed: ", Time.get_ticks_msec() - time)
 		server_side_update(delta)
 
 var _drill_interval = 0.2
