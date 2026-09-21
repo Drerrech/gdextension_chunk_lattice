@@ -58,8 +58,6 @@ void ChunkLattice::setup(String p_file_world_name, Vector3i p_chunk_shape, Vecto
 	rpc_config("client_update_mesh_chunk", _cfg);
 	rpc_config("client_update_collision_chunk", _cfg);
     rpc_config("client_delete_chunk", _cfg);
-
-	init_worker_threads();
 }
 
 Chunk *ChunkLattice::loader_enters_mesh_chunk(ChunkLoader *loader, Vector3i chunk_idx) {

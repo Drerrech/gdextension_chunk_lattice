@@ -21,19 +21,6 @@ TERRAIN OUTLINE
 flat with height defined by 4.f * simplex(2.0 * x)
 */
 
-// raw_generation.h
-static inline std::vector<Ref<Thread>> &worker_threads() {
-    static std::vector<Ref<Thread>> threads;   // constructed on first call, not at load
-    return threads;
-}
-const int NUM_THREADS = 1;
-static inline void init_worker_threads(NUM_THREADS) {
-    auto &t = worker_threads();
-    if (!t.empty()) return;                    // already initialised
-    t.resize(n);
-    for (int i = 0; i < n; i++) t[i].instantiate();
-}
-
 static inline fnl_state make_noise_state(int lattice_type, int seed) {
     fnl_state s = fnlCreateState();
     switch (lattice_type) {
@@ -146,7 +133,7 @@ static inline ChunkChanges get_chunk_structure_changes(Vector3 chunk_pos, Vector
     return banana_changes;
 }
 
-static inline void set_chunk_raw_data(Chunk* chunk) {
+static inline void set_chunk_raw_points(Chunk* chunk) {
     Vector3 chunk_pos = chunk->get_global_position();
     fnl_state noise_state = make_noise_state(chunk->lattice_type, chunk->lattice_seed);
 
