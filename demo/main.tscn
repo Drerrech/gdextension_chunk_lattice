@@ -37,15 +37,26 @@ script = ExtResource("2_0xm2m")
 [node name="Node2D" type="Node2D" parent="." unique_id=836850972]
 
 [node name="server" type="Button" parent="Node2D" unique_id=996975326]
-offset_right = 8.0
-offset_bottom = 8.0
+offset_left = 446.0
+offset_top = 272.0
+offset_right = 706.0
+offset_bottom = 312.0
 text = "server"
 
 [node name="client" type="Button" parent="Node2D" unique_id=1705315710]
-offset_top = 32.0
-offset_right = 51.0
-offset_bottom = 63.0
+offset_left = 646.0
+offset_top = 320.0
+offset_right = 706.0
+offset_bottom = 360.0
 text = "client"
+
+[node name="TextEdit" type="TextEdit" parent="Node2D" unique_id=1535375664]
+offset_left = 446.0
+offset_top = 320.0
+offset_right = 626.0
+offset_bottom = 360.0
+text = "127.0.0.1"
+placeholder_text = "ip adress of the server"
 
 [node name="server_camera" type="Node3D" parent="." unique_id=47163700]
 script = ExtResource("4_1bvp3")

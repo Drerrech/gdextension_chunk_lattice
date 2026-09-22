@@ -6,7 +6,7 @@ extends CharacterBody3D
 
 var id: int
 
-const SPEED = 16.0
+const SPEED = 8.0
 const JUMP_VELOCITY = 5
 const MOUSE_SENSITIVITY = 0.1
 
@@ -36,8 +36,9 @@ func _ready() -> void:
 	name = str(id)
 	text_mesh.mesh.text = str(id)
 	
-	if multiplayer.is_server(): # IMPORTANT: guard loaders with this
-		loader.setup(Main.CL, id, 7, 2)
+	rpc_server_player_custom_loader_setup(3, 2)
+	#if multiplayer.is_server(): # IMPORTANT: guard loaders with this
+		#loader.setup(Main.CL, id, 3, 2)
 	
 	# owner only
 	if is_multiplayer_authority():
@@ -58,7 +59,11 @@ func _physics_process(delta: float) -> void:
 
 		# Handle jump.
 		if Input.is_action_pressed("space"):
-			velocity.y = JUMP_VELOCITY
+			if is_on_floor():
+				velocity.y = JUMP_VELOCITY
+			if Input.is_action_pressed("shift"):
+				velocity.y += delta * (10 + JUMP_VELOCITY)
+			
 
 		# Get the input direction and handle the movement/deceleration.
 		# As good practice, you should replace UI actions with custom gameplay actions.
@@ -126,3 +131,8 @@ func _input(event):
 func rpc_server_player_set_button(key: String, pressed: bool):
 	if !multiplayer.is_server(): return
 	pressed_buttons[key] = pressed
+
+@rpc("any_peer", "call_remote", "reliable")
+func rpc_server_player_custom_loader_setup(mesh_rad: int, collision_rad: int):
+	if !multiplayer.is_server(): return
+	loader.setup(Main.CL, id, mesh_rad, collision_rad)

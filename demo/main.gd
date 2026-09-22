@@ -9,6 +9,7 @@ const l_seed = 42
 @onready var m_spawner = $MultiplayerSpawner
 
 @onready var ui_interface = $Node2D
+@onready var text_inp_ip = $Node2D/TextEdit
 
 func _ready() -> void:
 	multiplayer.peer_connected.connect(_peer_connected)
@@ -28,7 +29,7 @@ func start_server() -> void:
 	ui_interface.visible = false
 	#m_spawner.request_spawn({"type": "player", "id": multiplayer.get_unique_id(), "glob_pos": Vector3(0, 5, 0)})
 
-func start_client() -> void:
+func start_client(ip: String) -> void:
 	CL.setup("client_empty", c_shape, c_cube_size, l_type, l_seed)
 	var peer = ENetMultiplayerPeer.new()
 	var err = peer.create_client("127.0.0.1", 8998)
@@ -58,4 +59,4 @@ func _on_server_button_down() -> void:
 
 
 func _on_client_button_down() -> void:
-	start_client()
+	start_client(text_inp_ip.text)

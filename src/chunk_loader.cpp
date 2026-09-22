@@ -19,6 +19,7 @@ ChunkLoader::~ChunkLoader() {
 
 void ChunkLoader::_exit_tree() {
     if (lattice_ptr == nullptr) return;
+	peer_id = -1;
     for (const Vector3i &idx : mesh_occupied) {
         lattice_ptr->loader_exits_chunk(this, idx);
     }
