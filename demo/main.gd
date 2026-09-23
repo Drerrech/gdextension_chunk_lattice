@@ -44,7 +44,7 @@ func _peer_connected(id: int) -> void:
 	if not multiplayer.is_server(): return
 	print("peer connected ", id)
 	print("my id: ", multiplayer.get_unique_id())
-	m_spawner.rpc_spawn.rpc_id(1, {"type": "player", "id": id, "glob_pos": Vector3(0, 5, 0)})
+	m_spawner.rpc_spawn.rpc_id(1, {"type": "player", "id": id, "glob_pos": Vector3(0, 50, 0)})
 
 func _peer_disconnected(id: int) -> void:
 	if not multiplayer.is_server(): return

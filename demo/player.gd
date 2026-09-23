@@ -90,18 +90,20 @@ var _drill_interval = 0.2
 var _drill_delta = 0
 func server_side_update(delta: float) -> void:
 	# soil gun
-	var drill_rad = 1
 	if pressed_buttons["m1"] or pressed_buttons["m2"]:
 		if _drill_delta <= 0:
 			_drill_delta = _drill_interval
+			var drill_diam = 3
 			if pressed_buttons["m1"]:
 				var pos = head.global_position + -3.0 * head.global_basis.z
 				var global_idx = TerrainModifications.get_global_idx(pos)
-				TerrainModifications.uniform_dumb_overwrite_cube_set(global_idx - 0*drill_rad*Vector3i(1, 1, 1), drill_rad*2 + 1, -1.0, 0)
+				@warning_ignore("integer_division")
+				TerrainModifications.uniform_dumb_overwrite_cube_set(global_idx - drill_diam/2 * Vector3i(1, 1, 1), drill_diam, -1.0, 0)
 			if pressed_buttons["m2"]:
 				var pos = head.global_position + -3.0 * head.global_basis.z
 				var global_idx = TerrainModifications.get_global_idx(pos)
-				TerrainModifications.uniform_dumb_overwrite_cube_set(global_idx - 0*drill_rad*Vector3i(1, 1, 1), drill_rad*2 + 1, 1.0, 1)
+				@warning_ignore("integer_division")
+				TerrainModifications.uniform_dumb_overwrite_cube_set(global_idx - drill_diam/2 * Vector3i(1, 1, 1), drill_diam, 1.0, 1)
 	if _drill_delta > 0: _drill_delta -= delta
 
 func _input(event):

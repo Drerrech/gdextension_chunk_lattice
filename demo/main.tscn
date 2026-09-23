@@ -58,6 +58,23 @@ offset_bottom = 360.0
 text = "127.0.0.1"
 placeholder_text = "ip adress of the server"
 
+[node name="SpinBox" type="SpinBox" parent="Node2D" unique_id=1208927450]
+offset_left = 616.0
+offset_top = 370.0
+offset_right = 706.0
+offset_bottom = 410.0
+min_value = 1.0
+max_value = 9.0
+value = 1.0
+rounded = true
+
+[node name="Label" type="Label" parent="Node2D" unique_id=1024580144]
+offset_left = 446.0
+offset_top = 370.0
+offset_right = 606.0
+offset_bottom = 410.0
+text = "chunk render radius"
+
 [node name="server_camera" type="Node3D" parent="." unique_id=47163700]
 script = ExtResource("4_1bvp3")
 
