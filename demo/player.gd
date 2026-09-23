@@ -93,15 +93,13 @@ func server_side_update(delta: float) -> void:
 	if pressed_buttons["m1"] or pressed_buttons["m2"]:
 		if _drill_delta <= 0:
 			_drill_delta = _drill_interval
-			var drill_diam = 3
+			var drill_diam = 2
+			var pos = head.global_position + -3.0 * head.global_basis.z
+			var global_idx = TerrainModifications.get_global_idx(pos + Main.c_cube_size * (1 - drill_diam%2)*Vector3(0.5, 0.5, 0.5))
 			if pressed_buttons["m1"]:
-				var pos = head.global_position + -3.0 * head.global_basis.z
-				var global_idx = TerrainModifications.get_global_idx(pos)
 				@warning_ignore("integer_division")
 				TerrainModifications.uniform_dumb_overwrite_cube_set(global_idx - drill_diam/2 * Vector3i(1, 1, 1), drill_diam, -1.0, 0)
 			if pressed_buttons["m2"]:
-				var pos = head.global_position + -3.0 * head.global_basis.z
-				var global_idx = TerrainModifications.get_global_idx(pos)
 				@warning_ignore("integer_division")
 				TerrainModifications.uniform_dumb_overwrite_cube_set(global_idx - drill_diam/2 * Vector3i(1, 1, 1), drill_diam, 1.0, 1)
 	if _drill_delta > 0: _drill_delta -= delta
