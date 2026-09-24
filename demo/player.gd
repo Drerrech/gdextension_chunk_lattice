@@ -32,6 +32,9 @@ var pressed_buttons = {
 @onready var camera = $Torso/Head/Camera3D
 @onready var text_mesh = $TextMesh
 
+@onready var drill_ray = $Torso/Head/RayCast3D
+@onready var drill_indicator = $Torso/Head/indicator
+
 func _ready() -> void:
 	name = str(id)
 	text_mesh.mesh.text = str(id)
@@ -80,29 +83,38 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	var colliding = drill_ray.is_colliding()
+	drill_indicator.visible = colliding 
+	
+	if colliding:
+		drill_indicator.global_position = drill_ray.get_collision_point()
+	
 	if multiplayer.is_server():
 		#var time = Time.get_ticks_msec()
 		loader.check_and_load()
 		#if (Time.get_ticks_msec() - time > 10): print("passed: ", Time.get_ticks_msec() - time)
 		server_side_update(delta)
 
-var _drill_interval = 0.2
+var _drill_interval = 0.1
 var _drill_delta = 0
+var drill_diam = 2
+var _drill_fullness_delta = 0.2
 func server_side_update(delta: float) -> void:
-	# soil gun
-	if pressed_buttons["m1"] or pressed_buttons["m2"]:
-		if _drill_delta <= 0:
-			_drill_delta = _drill_interval
-			var drill_diam = 2
-			var pos = head.global_position + -3.0 * head.global_basis.z
-			var global_idx = TerrainModifications.get_global_idx(pos + Main.c_cube_size * (1 - drill_diam%2)*Vector3(0.5, 0.5, 0.5))
-			if pressed_buttons["m1"]:
-				@warning_ignore("integer_division")
-				TerrainModifications.uniform_dumb_overwrite_cube_set(global_idx - drill_diam/2 * Vector3i(1, 1, 1), drill_diam, -1.0, 0)
-			if pressed_buttons["m2"]:
-				@warning_ignore("integer_division")
-				TerrainModifications.uniform_dumb_overwrite_cube_set(global_idx - drill_diam/2 * Vector3i(1, 1, 1), drill_diam, 1.0, 1)
-	if _drill_delta > 0: _drill_delta -= delta
+	var colliding = drill_ray.is_colliding()
+	if colliding:
+		# soil gun
+		if pressed_buttons["m1"] or pressed_buttons["m2"]:
+			if _drill_delta <= 0:
+				_drill_delta = _drill_interval
+				var pos = drill_ray.get_collision_point()
+				var global_idx = TerrainModifications.get_global_idx(pos + Main.c_cube_size * (1 - drill_diam%2)*Vector3(0.5, 0.5, 0.5))
+				if pressed_buttons["m1"]:
+					@warning_ignore("integer_division")
+					TerrainModifications.uniform_cube_add(global_idx - drill_diam/2 * Vector3i(1, 1, 1), drill_diam, -_drill_fullness_delta, 0)
+				if pressed_buttons["m2"]:
+					@warning_ignore("integer_division")
+					TerrainModifications.uniform_cube_add(global_idx - drill_diam/2 * Vector3i(1, 1, 1), drill_diam, _drill_fullness_delta, 1)
+		if _drill_delta > 0: _drill_delta -= delta
 
 func _input(event):
 	if not is_multiplayer_authority(): return

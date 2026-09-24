@@ -4,6 +4,7 @@ extends MultiplayerSpawner
 @onready var ball_scene = preload("res://ball.tscn")
 @onready var bomb_scene = preload("res://bomb.tscn")
 @onready var light_scene = preload("res://light.tscn")
+@onready var explosion_scene = preload("res://explosion.tscn")
 
 func _ready() -> void:
 	spawn_function = _spawn_function
@@ -42,6 +43,15 @@ func _spawn_function(data: Dictionary) -> Node:
 		
 		entity = light_scene.instantiate()
 		entity.position = glob_pos
+	
+	if data["type"] == "explosion":
+		var glob_pos = data["glob_pos"]
+		
+		entity = explosion_scene.instantiate()
+		entity.position = glob_pos
+		
+		if data.has("rad"):
+			entity.rad = data["rad"]
 	
 	return entity
 

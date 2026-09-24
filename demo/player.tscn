@@ -51,9 +51,13 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.62151647)
 mesh = SubResource("BoxMesh_onrkg")
 
-[node name="MeshInstance3D2" type="MeshInstance3D" parent="Torso/Head" unique_id=1176306803]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3)
+[node name="indicator" type="MeshInstance3D" parent="Torso/Head" unique_id=1176306803]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8)
+visible = false
 mesh = SubResource("SphereMesh_7pfnl")
+
+[node name="RayCast3D" type="RayCast3D" parent="Torso/Head" unique_id=721080647]
+target_position = Vector3(0, 0, -8)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Torso" unique_id=1627331657]
 transform = Transform3D(1, 0, 0, 0, 0.9577623, 0.28756112, 0, -0.28756112, 0.9577623, 0, 1, 0)
