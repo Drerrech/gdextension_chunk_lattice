@@ -122,7 +122,7 @@ func _process(delta: float) -> void:
 		#if (Time.get_ticks_msec() - time > 10): print("passed: ", Time.get_ticks_msec() - time)
 		server_side_update(delta)
 
-var _drill_interval = 0.1
+var _drill_interval = 0.05
 var _drill_delta = 0
 var drill_diam = 2
 var _drill_fullness_delta = 0.2
