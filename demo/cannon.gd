@@ -41,6 +41,6 @@ func _process(delta: float) -> void:
 			shoot_delta = shoot_delta_time
 			Main.m_spawner.rpc_spawn.rpc_id(1, {"type": "explosion", "glob_pos": projectile_spawn.global_position, "rad": 1})
 			Main.m_spawner.rpc_spawn.rpc_id(1, {"type": "cannon_projectile", "glob_pos": projectile_spawn.global_position, "travel_dir": -40.0 * projectile_spawn.global_basis.z})
-		elif shoot_delta > 0:
-			shoot_delta -= delta
+	if shoot_delta > 0:
+		shoot_delta -= delta
 		
