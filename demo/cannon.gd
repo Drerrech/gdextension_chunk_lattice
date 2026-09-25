@@ -25,8 +25,8 @@ func _process(delta: float) -> void:
 	if seat.seated_player != null:
 		# rotation
 		var player: Player = seat.seated_player
-		print(player, player.pressed_buttons)
 		if player.pressed_buttons["w"]:
+			print(player, "pressing w")
 			head.rotation.z = clamp(head.rotation.z + rotation_speed * delta, -0.5, 0.7)
 		if player.pressed_buttons["s"]:
 			head.rotation.z = clamp(head.rotation.z - rotation_speed * delta, -0.5, 0.7)
