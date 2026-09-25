@@ -107,13 +107,14 @@ func _process(delta: float) -> void:
 				seated = true
 				seat = col
 	else: # seated
-		if seat == null: # seat was deleted
+		if not is_instance_valid(seat) or not seat.is_inside_tree(): # seat was deleted
 			seated = false
 			seat = null
 		else:
 			drill_indicator.visible = false
 			
 			global_position = seat.global_position
+				
 			
 			if pressed_buttons["q"]:
 				seat.unseat()
