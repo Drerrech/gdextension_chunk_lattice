@@ -107,14 +107,18 @@ func _process(delta: float) -> void:
 				seated = true
 				seat = col
 	else: # seated
-		drill_indicator.visible = false
-		
-		global_position = seat.global_position
-		
-		if pressed_buttons["q"]:
-			seat.unseat()
+		if seat == null: # seat was deleted
 			seated = false
 			seat = null
+		else:
+			drill_indicator.visible = false
+			
+			global_position = seat.global_position
+			
+			if pressed_buttons["q"]:
+				seat.unseat()
+				seated = false
+				seat = null
 	
 	if multiplayer.is_server():
 		#var time = Time.get_ticks_msec()
