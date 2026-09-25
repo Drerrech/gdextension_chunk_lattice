@@ -1,0 +1,32 @@
+[gd_scene format=3 uid="uid://dnl5iftwn822g"]
+
+[ext_resource type="Script" uid="uid://b7conbegqgfy6" path="res://cannon_projectile.gd" id="1_n5pep"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_813wq"]
+albedo_color = Color(0.7409834, 0.59349555, 1.92523e-07, 1)
+emission_enabled = true
+emission = Color(0.8862745, 0.44313726, 0.25882354, 1)
+emission_energy_multiplier = 10.0
+
+[sub_resource type="SphereMesh" id="SphereMesh_7pfnl"]
+material = SubResource("StandardMaterial3D_813wq")
+radius = 0.2
+height = 0.4
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_n5pep"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+
+[node name="cannon_projectile" type="Node3D" unique_id=99126840]
+script = ExtResource("1_n5pep")
+
+[node name="ChunkLoader" type="ChunkLoader" parent="." unique_id=1097805198]
+
+[node name="RayCast3D" type="RayCast3D" parent="." unique_id=1131958794]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=2079848150]
+mesh = SubResource("SphereMesh_7pfnl")
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=1264266727]
+replication_config = SubResource("SceneReplicationConfig_n5pep")

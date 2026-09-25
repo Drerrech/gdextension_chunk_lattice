@@ -5,6 +5,8 @@ extends CharacterBody3D
 @onready var Main = get_tree().root.get_node("main")
 
 var id: int
+var seated = false
+var seat = null
 
 const SPEED = 8.0
 const JUMP_VELOCITY = 5
@@ -17,10 +19,19 @@ var pressed_buttons = {
 	"1": false,
 	"2": false,
 	"3": false,
+	"4": false,
+	"5": false,
+	"6": false,
+	"7": false,
+	"8": false,
+	"9": false,
+	"0": false,
 	"w": false,
 	"a": false,
 	"s": false,
 	"d": false,
+	"e": false,
+	"q": false,
 	"m1": false,
 	"m2": false
 }
@@ -83,11 +94,27 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
-	var colliding = drill_ray.is_colliding()
-	drill_indicator.visible = colliding 
+	if !seated:
+		var colliding = drill_ray.is_colliding()
+		drill_indicator.visible = colliding 
 	
-	if colliding:
-		drill_indicator.global_position = drill_ray.get_collision_point()
+		if colliding:
+			drill_indicator.global_position = drill_ray.get_collision_point()
+			var col = drill_ray.get_collider()
+			
+			if pressed_buttons["e"] and col.is_in_group("seat"):
+				col.seat(self)
+				seated = true
+				seat = col
+	else: # seated
+		drill_indicator.visible = false
+		
+		global_position = seat.global_position
+		
+		if pressed_buttons["q"]:
+			seat.unseat()
+			seated = false
+			seat = null
 	
 	if multiplayer.is_server():
 		#var time = Time.get_ticks_msec()
@@ -101,19 +128,18 @@ var drill_diam = 2
 var _drill_fullness_delta = 0.2
 func server_side_update(delta: float) -> void:
 	var colliding = drill_ray.is_colliding()
-	if colliding:
+	if colliding and !seated:
 		# soil gun
-		if pressed_buttons["m1"] or pressed_buttons["m2"]:
-			if _drill_delta <= 0:
-				_drill_delta = _drill_interval
-				var pos = drill_ray.get_collision_point()
-				var global_idx = TerrainModifications.get_global_idx(pos + Main.c_cube_size * (1 - drill_diam%2)*Vector3(0.5, 0.5, 0.5))
-				if pressed_buttons["m1"]:
-					@warning_ignore("integer_division")
-					TerrainModifications.uniform_cube_add(global_idx - drill_diam/2 * Vector3i(1, 1, 1), drill_diam, -_drill_fullness_delta, 0)
-				if pressed_buttons["m2"]:
-					@warning_ignore("integer_division")
-					TerrainModifications.uniform_cube_add(global_idx - drill_diam/2 * Vector3i(1, 1, 1), drill_diam, _drill_fullness_delta, 1)
+		if _drill_delta <= 0:
+			_drill_delta = _drill_interval
+			var pos = drill_ray.get_collision_point()
+			var global_idx = TerrainModifications.get_global_idx(pos + Main.c_cube_size * (1 - drill_diam%2)*Vector3(0.5, 0.5, 0.5))
+			if pressed_buttons["m1"]:
+				@warning_ignore("integer_division")
+				TerrainModifications.uniform_cube_add(global_idx - drill_diam/2 * Vector3i(1, 1, 1), drill_diam, -_drill_fullness_delta, 0)
+			if pressed_buttons["m2"]:
+				@warning_ignore("integer_division")
+				TerrainModifications.uniform_cube_add(global_idx - drill_diam/2 * Vector3i(1, 1, 1), drill_diam, _drill_fullness_delta, 1)
 		if _drill_delta > 0: _drill_delta -= delta
 
 func _input(event):
@@ -132,12 +158,15 @@ func _input(event):
 		head.rotate_x(deg_to_rad(event.relative.y * MOUSE_SENSITIVITY * -1))
 		head.rotation_degrees.x = clamp(head.rotation_degrees.x, -89, 89)
 	
-	if Input.is_action_just_pressed("1"):
-		m_spawner.rpc_spawn.rpc_id(1, {"type": "ball", "glob_pos": head.global_position + -3.0 * head.global_basis.z})
-	if Input.is_action_just_pressed("2"):
-		m_spawner.rpc_spawn.rpc_id(1, {"type": "bomb", "glob_pos": head.global_position + -3.0 * head.global_basis.z, "linear_velocity": -20.0 * head.global_basis.z})
-	if Input.is_action_just_pressed("3"):
-		m_spawner.rpc_spawn.rpc_id(1, {"type": "light", "glob_pos": head.global_position + -3.0 * head.global_basis.z})
+	if !seated:
+		if Input.is_action_just_pressed("1"):
+			m_spawner.rpc_spawn.rpc_id(1, {"type": "ball", "glob_pos": head.global_position + -3.0 * head.global_basis.z})
+		if Input.is_action_just_pressed("2"):
+			m_spawner.rpc_spawn.rpc_id(1, {"type": "bomb", "glob_pos": head.global_position + -3.0 * head.global_basis.z, "linear_velocity": -20.0 * head.global_basis.z})
+		if Input.is_action_just_pressed("3"):
+			m_spawner.rpc_spawn.rpc_id(1, {"type": "light", "glob_pos": head.global_position + -3.0 * head.global_basis.z})
+		if Input.is_action_just_pressed("4"):
+			m_spawner.rpc_spawn.rpc_id(1, {"type": "cannon", "glob_pos": head.global_position + -6.0 * head.global_basis.z})
 
 @rpc("any_peer", "call_remote", "reliable")
 func rpc_server_player_set_button(key: String, pressed: bool):

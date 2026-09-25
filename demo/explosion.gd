@@ -6,7 +6,7 @@ var explosion_rad: int = 5
 var rad: float = 8
 
 func _ready() -> void:
-	smoke_particles.amount = min(128, int(rad**2))
+	smoke_particles.amount = min(128, int(4 * rad**2))
 	smoke_particles.process_material.initial_velocity_max = min(8, rad+4)
 	smoke_particles.emitting = true
 

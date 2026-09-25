@@ -5,6 +5,8 @@ extends MultiplayerSpawner
 @onready var bomb_scene = preload("res://bomb.tscn")
 @onready var light_scene = preload("res://light.tscn")
 @onready var explosion_scene = preload("res://explosion.tscn")
+@onready var cannon_projectile_scene = preload("res://cannon_projectile.tscn")
+@onready var cannon_scene = preload("res://cannon.tscn")
 
 func _ready() -> void:
 	spawn_function = _spawn_function
@@ -52,6 +54,21 @@ func _spawn_function(data: Dictionary) -> Node:
 		
 		if data.has("rad"):
 			entity.rad = data["rad"]
+	
+	if data["type"] == "cannon_projectile":
+		var glob_pos = data["glob_pos"]
+		
+		entity = cannon_projectile_scene.instantiate()
+		entity.position = glob_pos
+		
+		if data.has("travel_dir"):
+			entity.travel_dir = data["travel_dir"]
+	
+	if data["type"] == "cannon":
+		var glob_pos = data["glob_pos"]
+		
+		entity = cannon_scene.instantiate()
+		entity.position = glob_pos
 	
 	return entity
 

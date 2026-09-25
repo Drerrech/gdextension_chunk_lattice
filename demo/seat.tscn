@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://dbnuf0mcf13nc"]
+
+[ext_resource type="Script" uid="uid://0atmenab0oqt" path="res://seat.gd" id="1_bn7dt"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_813wq"]
+albedo_color = Color(0.70515454, 0.4563223, 0.28740934, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_7pfnl"]
+material = SubResource("StandardMaterial3D_813wq")
+size = Vector3(1, 0.2, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_7pfnl"]
+size = Vector3(1, 0.2, 1)
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_bn7dt"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+
+[node name="seat" type="StaticBody3D" unique_id=2110434850 groups=["seat"]]
+script = ExtResource("1_bn7dt")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=729659242]
+mesh = SubResource("BoxMesh_7pfnl")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=940498307]
+shape = SubResource("BoxShape3D_7pfnl")
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=931829176]
+replication_config = SubResource("SceneReplicationConfig_bn7dt")

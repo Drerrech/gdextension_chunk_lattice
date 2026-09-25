@@ -1,0 +1,50 @@
+[gd_scene format=3 uid="uid://dyrl3jaqx2in5"]
+
+[ext_resource type="ArrayMesh" uid="uid://b1jnw1aillnnr" path="res://3dmodels/gutlinbod2.obj" id="1_23j6s"]
+[ext_resource type="Script" uid="uid://dsbg5uanv8e67" path="res://cannon.gd" id="1_odvvv"]
+[ext_resource type="ArrayMesh" uid="uid://s7q2p32s7w5c" path="res://3dmodels/gutlingun2.obj" id="2_72ky0"]
+[ext_resource type="PackedScene" uid="uid://dbnuf0mcf13nc" path="res://seat.tscn" id="3_72ky0"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_7pfnl"]
+size = Vector3(12.6015625, 10, 13.033203)
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_odvvv"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath("torso:rotation")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+properties/3/path = NodePath("torso/head:rotation")
+properties/3/spawn = true
+properties/3/replication_mode = 1
+
+[node name="cannon" type="StaticBody3D" unique_id=109886811 groups=["cannon"]]
+script = ExtResource("1_odvvv")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1788060187]
+transform = Transform3D(-1.0927847e-08, 0, 0.25, 0, 0.25, 0, -0.25, 0, -1.0927847e-08, -0.30291113, 1.5, -0.1834147)
+shape = SubResource("BoxShape3D_7pfnl")
+
+[node name="torso" type="MeshInstance3D" parent="." unique_id=1439994703]
+transform = Transform3D(-1.0927847e-08, 0, 0.25, 0, 0.25, 0, -0.25, 0, -1.0927847e-08, 0, 0, 0)
+mesh = ExtResource("1_23j6s")
+
+[node name="head" type="Node3D" parent="torso" unique_id=1212714752]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+
+[node name="model" type="MeshInstance3D" parent="torso/head" unique_id=908168238]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -5, 0)
+mesh = ExtResource("2_72ky0")
+
+[node name="projectile_spawn" type="Node3D" parent="torso/head" unique_id=1440282939]
+transform = Transform3D(-1.7484555e-07, 0, -4, 0, 4, 0, 4, 0, -1.7484555e-07, 24, 4, 0)
+
+[node name="seat" parent="torso" unique_id=1688876107 instance=ExtResource("3_72ky0")]
+transform = Transform3D(-1.7484555e-07, 0, -4, 0, 4, 0, 4, 0, -1.7484555e-07, -1.0650046, 3.905707, 5.940551)
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=1071710212]
+replication_config = SubResource("SceneReplicationConfig_odvvv")
