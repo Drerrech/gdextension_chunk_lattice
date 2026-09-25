@@ -23,9 +23,9 @@ func _process(delta: float) -> void:
 	if !multiplayer.is_server(): return
 	
 	if seat.seated_player != null:
-		
 		# rotation
 		var player: Player = seat.seated_player
+		print(player, player.pressed_buttons)
 		if player.pressed_buttons["w"]:
 			head.rotation.z = clamp(head.rotation.z + rotation_speed * delta, -0.5, 0.7)
 		if player.pressed_buttons["s"]:
